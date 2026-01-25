@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": [
+      "ES2020"
+    ],
+    "outDir": "out",
+    "rootDir": ".",
+    "strict": false,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node", "vscode"]
+  },
+  "include": [
+    "src/**/*",
+    "utils/**/*"
+  ],
+  "exclude": [
+    "src/app.tsx",
+    "asserts/**/*",
+    "node_modules",
+    "out"
+  ]
+}
