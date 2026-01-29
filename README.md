@@ -128,6 +128,63 @@ mybricks-ide-as-vscode-plugin/
 
 ## ⚙️ 配置说明
 
+### MCP 服务器配置
+
+本插件内置了 MCP (Model Context Protocol) HTTP 服务器，允许 Cursor 等 IDE 通过 MCP 协议连接并使用 MyBricks 功能。
+
+#### 1. 插件配置（VSCode 设置）
+
+在 VSCode 设置中可以配置 MCP 服务器端口：
+
+```json
+{
+  "mybricks.mcp.port": 3001
+}
+```
+
+#### 2. 用户项目配置（Cursor 等 IDE）
+
+在用户项目的 Cursor 配置文件中添加 MCP 服务器连接：
+
+**方式一：项目级配置** (`.cursor/mcp.json` 或 `.vscode/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "mybricks": {
+      "url": "http://localhost:3001"
+    }
+  }
+}
+```
+
+**方式二：全局配置** (`~/.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "mybricks": {
+      "url": "http://localhost:3001"
+    }
+  }
+}
+```
+
+> **注意**：使用官方 `@modelcontextprotocol/sdk` 的 Streamable HTTP 传输，端点直接是服务器根路径，不需要 `/mcp` 后缀。
+
+#### 3. 可用的 MCP 工具
+
+插件提供以下 MCP 工具供 AI 助手使用：
+
+- **getFileContent**: 获取 MyBricks 项目文件内容
+- **saveFileContent**: 保存 MyBricks 项目文件内容
+- **exportProject**: 导出 MyBricks 项目
+
+#### 4. 健康检查
+
+MCP 服务器提供健康检查端点：
+```
+GET http://localhost:3001/health
+```
+
 ### MyBricks 配置项 (`asserts/config.tsx`)
 
 ```typescript

@@ -24,6 +24,13 @@ function registerHandlers(messageApiInstance, context) {
     const res = await exportProject(context, configJson)
     return res
   })
+
+  // 获取当前聚焦的元素信息
+  messageApiInstance.registerHandler('getFocusElementInfo', async () => {
+    // 调用前端 window.__mybricksAIService.focus 获取当前聚焦的元素信息
+    const focusInfo = await messageApiInstance.callWebview('getFocusInfo')
+    return focusInfo
+  })
 }
 
 module.exports = registerHandlers

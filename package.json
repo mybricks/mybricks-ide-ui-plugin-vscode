@@ -4,6 +4,9 @@
   "description": "MyBricks.ai 可视化开发平台 - VSCode 集成版，支持小程序、H5 页面可视化搭建",
   "version": "0.0.9",
   "publisher": "mybricks",
+  "scripts": {
+    "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mybricks/mybricks-ide-as-vscode-plugin.git"
@@ -24,6 +27,10 @@
         "command": "mybricks.openIDE",
         "title": "Open MyBricks IDE",
         "icon": "asserts/icon.svg"
+      },
+      {
+        "command": "mybricks.init",
+        "title": "初始化 MyBricks 环境"
       }
     ],
     "viewsContainers": {
@@ -47,10 +54,18 @@
     },
     "configuration": {
       "title": "MyBricks",
-      "properties": {}
+      "properties": {
+        "mybricks.mcp.port": {
+          "type": "number",
+          "default": 3001,
+          "description": "MCP HTTP 服务器端口号",
+          "minimum": 1000,
+          "maximum": 65535
+        }
+      }
     }
   },
   "dependencies": {
-
+    "@modelcontextprotocol/sdk": "^1.25.3"
   }
 }

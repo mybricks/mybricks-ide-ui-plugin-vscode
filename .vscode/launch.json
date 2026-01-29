@@ -18,6 +18,26 @@
       ]
     },
     {
+      "name": "调试前端代码 (Debug Frontend)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/**/*.js"
+      ],
+      "preLaunchTask": "${defaultBuildTask}",
+      "sourceMaps": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "env": {
+        "MYBRICKS_FRONT_END_DEBUG_MODE": "true"
+      }
+    },
+    {
       "name": "附加到扩展 (Attach to Extension)",
       "type": "extensionHost",
       "request": "attach",
