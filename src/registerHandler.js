@@ -1,5 +1,6 @@
 const vscode = require('vscode')
 const path = require('path')
+const fs = require('fs')
 const { getFileContent, saveFileContent, saveProject } = require('../utils/saveProject')
 const { exportProject } = require('../utils/exportProject')
 const {
@@ -46,11 +47,21 @@ function registerHandlers(messageApiInstance, context) {
     saveFileContent(context, data)
   })
 
-  // 保存项目：有 currentFilePath 则直接保存，否则弹窗选择位置
+  // 保存项目：有 currentFilePath 则直接保存，否则弹窗选择路径和文件名（另存为）
   messageApiInstance.registerHandler('saveProject', async (data) => {
+    const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+    const webviewManager = getWebviewManager()
     const saveContent = data?.saveContent != null ? data.saveContent : data
-    const currentFilePath = data?.currentFilePath ?? null
-    return await saveProject(context, saveContent, currentFilePath)
+    let currentFilePath = data?.currentFilePath ?? webviewManager.getCurrentFilePath()
+    const res = await saveProject(context, saveContent, currentFilePath)
+    // 新建文件另存为成功后：更新当前文件路径与面板标题
+    if (res.success && res.path && (!currentFilePath || !fs.existsSync(currentFilePath))) {
+      webviewManager.setCurrentFilePath(res.path)
+      if (messageApiInstance.panel) {
+        messageApiInstance.panel.title = path.basename(res.path)
+      }
+    }
+    return res
   })
 
   // 导出项目
@@ -78,18 +89,22 @@ function registerHandlers(messageApiInstance, context) {
     }
     const root = getWorkspaceRoot()
     if (!currentFilePath) {
+      console.log('[导出] getCurrentExportDefaults: 无当前 .mybricks 文件，返回默认', { projectName: 'my_project', exportDir: '.' })
       return { projectName: 'my_project', exportDir: '.' }
     }
     const dir = path.dirname(currentFilePath)
     let exportDir = path.relative(root, dir)
     if (!exportDir || exportDir.startsWith('..')) exportDir = '.'
     const projectName = path.basename(currentFilePath, '.mybricks') || 'my_project'
-    return { projectName, exportDir }
+    const res = { projectName, exportDir }
+    console.log('[导出] getCurrentExportDefaults', { currentFilePath, root, res })
+    return res
   })
 
   // 选择导出目录（打开文件夹选择器，返回相对工作区根的路径及完整路径）
   messageApiInstance.registerHandler('selectExportDir', async () => {
     const root = getWorkspaceRoot()
+    console.log('[导出] selectExportDir: 工作区根', root)
     const uri = await vscode.window.showOpenDialog({
       canSelectFolders: true,
       canSelectMany: false,
@@ -99,21 +114,28 @@ function registerHandlers(messageApiInstance, context) {
     if (uri && uri[0]) {
       const selected = uri[0].fsPath
       const relative = path.relative(root, selected)
-      if (relative && relative !== '..' && !relative.startsWith('..')) {
-        return { path: relative, fullPath: selected }
-      }
-      if (!relative || relative === '.') return { path: '.', fullPath: root }
+      const result = (relative && relative !== '..' && !relative.startsWith('..'))
+        ? { path: relative, fullPath: selected }
+        : (!relative || relative === '.') ? { path: '.', fullPath: root } : {}
+      console.log('[导出] selectExportDir: 用户选择结果', { selected, relative, result })
+      return result.path != null ? result : {}
     }
+    console.log('[导出] selectExportDir: 用户取消或无效选择')
     return {}
   })
 
   // 将导出相对路径解析为工作区内的完整路径（供前端展示）
   messageApiInstance.registerHandler('getExportFullPath', (data) => {
     const basePath = data && data.basePath != null ? String(data.basePath).trim() : ''
-    if (!basePath) return { fullPath: '' }
+    if (!basePath) {
+      console.log('[导出] getExportFullPath: basePath 为空')
+      return { fullPath: '' }
+    }
     const root = getWorkspaceRoot()
     const full = path.resolve(root, basePath)
-    return { fullPath: full.startsWith(root) ? full : root }
+    const fullPath = full.startsWith(root) ? full : root
+    console.log('[导出] getExportFullPath', { basePath, root, fullPath })
+    return { fullPath }
   })
 
   // 获取当前聚焦的元素信息

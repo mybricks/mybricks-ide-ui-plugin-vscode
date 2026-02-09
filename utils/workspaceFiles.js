@@ -42,10 +42,10 @@ function readWorkspaceFile(relativePath) {
 }
 
 /**
- * 写入单个文件到工作区
+ * 写入单个文件到工作区（增量：内容一致则不写入）
  * @param {string} relativePath - 相对于工作区根目录的路径
  * @param {string} content - 文件内容
- * @returns {{ ok: true } | { error: string }}
+ * @returns {{ ok: true, updated?: boolean } | { error: string }}
  */
 function writeWorkspaceFile(relativePath, content) {
   const root = getWorkspaceRoot()
@@ -62,8 +62,12 @@ function writeWorkspaceFile(relativePath, content) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
+    if (fs.existsSync(fullPath)) {
+      const current = fs.readFileSync(fullPath, 'utf-8')
+      if (current === content) return { ok: true, updated: false }
+    }
     fs.writeFileSync(fullPath, content, 'utf-8')
-    return { ok: true }
+    return { ok: true, updated: true }
   } catch (err) {
     return { error: err.message || String(err) }
   }
@@ -110,6 +114,12 @@ function writeWorkspaceFilesFromResults(basePath, results) {
           const dir = path.dirname(itemPath)
           if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true })
+          }
+          // 增量更新：仅当文件不存在或内容不一致时才写入
+          const exists = fs.existsSync(itemPath)
+          if (exists) {
+            const current = fs.readFileSync(itemPath, 'utf-8')
+            if (current === content) continue
           }
           fs.writeFileSync(itemPath, content, 'utf-8')
           written.push(path.relative(root, itemPath))

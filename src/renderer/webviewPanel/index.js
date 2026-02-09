@@ -62,7 +62,7 @@ class WebviewPanel {
   }
 
   /**
-   * 根据文件路径取 webview 标题（文件名+扩展名）
+   * 根据文件路径取 webview 标题（文件名+扩展名，未命名时显示 未命名文件.mybricks）
    * @param {string|null} filePath
    * @returns {string}
    */
@@ -70,7 +70,7 @@ class WebviewPanel {
     if (filePath) {
       return path.basename(filePath)
     }
-    return 'MyBricks'
+    return '未命名文件.mybricks'
   }
 
   /**

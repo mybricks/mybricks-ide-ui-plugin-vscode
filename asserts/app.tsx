@@ -234,7 +234,7 @@ function ExportContent(props: {
 }) {
   const { open, onClose, onSync, loading } = props
   const defaultValues: ExportConfig = {
-    exportType: 'project',
+    exportType: 'component',
     projectName: 'my_project',
     exportDir: '.',
     ...(typeof localStorage !== 'undefined'
@@ -251,28 +251,26 @@ function ExportContent(props: {
       : projectName || ''
 
   const [writeFullPath, setWriteFullPath] = useState('')
-  const [workspaceRootPath, setWorkspaceRootPath] = useState('')
   useEffect(() => {
     if (!effectiveBasePath) {
       setWriteFullPath('')
+      console.log('[导出] effectiveBasePath 为空，清空 writeFullPath')
       return
     }
+    console.log('[导出] effectiveBasePath 变化，请求完整路径', { effectiveBasePath })
     vsCodeMessage?.call('getExportFullPath', { basePath: effectiveBasePath }).then((res: { fullPath?: string }) => {
-      setWriteFullPath(res?.fullPath ?? '')
+      const full = res?.fullPath ?? effectiveBasePath
+      setWriteFullPath(full)
+      console.log('[导出] getExportFullPath 返回', { basePath: effectiveBasePath, fullPath: full })
     })
   }, [effectiveBasePath])
-  // 工作区根目录完整路径（当 exportDir 为 . 时展示）
-  useEffect(() => {
-    if (!open || exportDir !== '.') return
-    vsCodeMessage?.call('getExportFullPath', { basePath: '.' }).then((res: { fullPath?: string }) => {
-      setWorkspaceRootPath(res?.fullPath ?? '')
-    })
-  }, [open, exportDir])
 
   // 打开弹窗时用当前 .mybricks 文件填充：项目名 = 文件名，导出目录 = 文件同级
   useEffect(() => {
     if (!open) return
+    console.log('[导出] 弹窗打开，请求 getCurrentExportDefaults')
     vsCodeMessage?.call('getCurrentExportDefaults').then((res: { projectName?: string; exportDir?: string }) => {
+      console.log('[导出] getCurrentExportDefaults 返回', res)
       if (res?.projectName != null || res?.exportDir != null) {
         const updates = {
           projectName: res.projectName ?? form.getFieldValue('projectName'),
@@ -296,17 +294,26 @@ function ExportContent(props: {
   )
 
   const onSelectDir = useCallback(() => {
+    console.log('[导出] 用户点击选择路径，调用 selectExportDir')
     vsCodeMessage?.call('selectExportDir').then((res: { path?: string }) => {
+      console.log('[导出] selectExportDir 返回', res)
       if (res?.path !== undefined) {
+        const projectNameVal = form.getFieldValue('projectName') || ''
+        const newBasePath = `${String(res.path).replace(/\\/g, '/').replace(/\/+$/, '')}/${projectNameVal}`
+        console.log('[导出] 设置 exportDir 并回显', { selectedPath: res.path, projectName: projectNameVal, newBasePath })
         form.setFieldValue('exportDir', res.path)
+        setFormValues((prev) => ({ ...prev, exportDir: res.path }))
         saveToStorage({ exportDir: res.path })
+        // 选择后立即请求完整路径并回显
+        vsCodeMessage?.call('getExportFullPath', { basePath: newBasePath }).then((fullRes: { fullPath?: string }) => {
+          const full = fullRes?.fullPath ?? newBasePath
+          setWriteFullPath(full)
+          console.log('[导出] 选择路径后 getExportFullPath 返回', { newBasePath, fullPath: full })
+        })
+      } else {
+        console.log('[导出] selectExportDir 未返回 path，可能用户取消选择')
       }
     })
-  }, [form, saveToStorage])
-
-  const onClearDir = useCallback(() => {
-    form.setFieldValue('exportDir', '')
-    saveToStorage({ exportDir: undefined })
   }, [form, saveToStorage])
 
   const handleSync = useCallback(() => {
@@ -314,11 +321,6 @@ function ExportContent(props: {
       onSync({ ...values, exportType: values.exportType || 'project' })
     })
   }, [form, onSync])
-
-  const nameLabel = Form.useWatch('exportType', form) === 'component' ? '组件名称' : '项目名称'
-  const namePlaceholder = Form.useWatch('exportType', form) === 'component' ? '请输入组件名称' : '请输入项目名称'
-
-  const exportDirDisplay = exportDir === '.' ? (workspaceRootPath || '工作区根目录') : exportDir
 
   return (
     <Form
@@ -328,19 +330,29 @@ function ExportContent(props: {
       size='small'
       initialValues={defaultValues}
     >
+      <Form.Item name='exportDir' noStyle>
+        <Input style={{ display: 'none' }} />
+      </Form.Item>
       <Form.Item label='导出类型' name='exportType' className='export-form-type'>
-        <Radio.Group
-          optionType='button'
-          buttonStyle='solid'
-          options={[
-            { value: 'project', label: '导出项目' },
-            { value: 'component', label: '导出组件' },
-          ]}
-          onChange={(e) => saveToStorage({ exportType: e.target.value })}
-        />
+        <Radio.Group onChange={(e) => saveToStorage({ exportType: e.target.value })}>
+          <Space direction='vertical' size={0} style={{ width: '100%' }}>
+            <Radio value='component'>
+              <span className='export-form-radio-block'>
+                <span className='export-form-radio-label'>组件源码</span>
+                <span className='export-form-radio-desc'>可嵌入到现有项目中作为组件使用</span>
+              </span>
+            </Radio>
+            <Radio value='project'>
+              <span className='export-form-radio-block'>
+                <span className='export-form-radio-label'>项目源码</span>
+                <span className='export-form-radio-desc'>独立可运行，可直接启动预览</span>
+              </span>
+            </Radio>
+          </Space>
+        </Radio.Group>
       </Form.Item>
       <Form.Item
-        label={nameLabel}
+        label='文件夹'
         name='projectName'
         rules={[
           {
@@ -354,7 +366,7 @@ function ExportContent(props: {
         ]}
       >
         <Input
-          placeholder={namePlaceholder}
+          placeholder='请输入文件夹名'
           onBlur={() => {
             form.validateFields(['projectName']).then((values: ExportConfig) => {
               saveToStorage({ projectName: values.projectName })
@@ -362,28 +374,17 @@ function ExportContent(props: {
           }}
         />
       </Form.Item>
-      <Form.Item label='导出目录' name='exportDir' shouldUpdate>
-        {exportDir !== undefined && exportDir !== '' ? (
-          <div className='export-form-dir'>
-            <span className='export-form-dir-path' title={exportDirDisplay}>
-              {exportDirDisplay}
-            </span>
-            <Button onClick={onClearDir} size='small'>
-              重置
-            </Button>
-          </div>
-        ) : (
-          <Button type='primary' size='small' onClick={onSelectDir}>
-            配置目录
-          </Button>
-        )}
-      </Form.Item>
       {effectiveBasePath && (
         <Form.Item label='' className='export-form-write-path'>
           <div className='export-form-write-path-box'>
             <div className='export-form-write-path-desc'>源码文件将会写入到此目录</div>
-            <div className='export-form-write-path-value' title={writeFullPath || effectiveBasePath}>
-              {writeFullPath || effectiveBasePath || '正在解析…'}
+            <div className='export-form-write-path-row'>
+              <div className='export-form-write-path-value' title={writeFullPath || effectiveBasePath}>
+                {writeFullPath || effectiveBasePath || '正在解析…'}
+              </div>
+              <span className='export-form-write-path-select' onClick={onSelectDir} role='button' tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onSelectDir()}>
+                选择路径
+              </span>
             </div>
           </div>
         </Form.Item>
