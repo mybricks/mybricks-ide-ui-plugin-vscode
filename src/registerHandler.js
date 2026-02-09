@@ -60,7 +60,34 @@ function registerHandlers(messageApiInstance, context) {
     return res
   })
 
-  // 选择导出目录（打开文件夹选择器，返回相对工作区根的路径）
+  // 根据当前 .mybricks 文件得到导出默认值：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
+  messageApiInstance.registerHandler('getCurrentExportDefaults', () => {
+    const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+    const webviewManager = getWebviewManager()
+    let currentFilePath = webviewManager.getCurrentFilePath()
+    if (!currentFilePath) {
+      const activeDoc = vscode.window.activeTextEditor?.document
+      if (activeDoc?.fileName?.endsWith('.mybricks')) {
+        currentFilePath = activeDoc.uri.fsPath
+      } else {
+        const mybricksDoc = vscode.workspace.textDocuments.find(
+          (d) => d.uri.scheme === 'file' && d.fileName.endsWith('.mybricks')
+        )
+        if (mybricksDoc) currentFilePath = mybricksDoc.uri.fsPath
+      }
+    }
+    const root = getWorkspaceRoot()
+    if (!currentFilePath) {
+      return { projectName: 'my_project', exportDir: '.' }
+    }
+    const dir = path.dirname(currentFilePath)
+    let exportDir = path.relative(root, dir)
+    if (!exportDir || exportDir.startsWith('..')) exportDir = '.'
+    const projectName = path.basename(currentFilePath, '.mybricks') || 'my_project'
+    return { projectName, exportDir }
+  })
+
+  // 选择导出目录（打开文件夹选择器，返回相对工作区根的路径及完整路径）
   messageApiInstance.registerHandler('selectExportDir', async () => {
     const root = getWorkspaceRoot()
     const uri = await vscode.window.showOpenDialog({
@@ -73,11 +100,20 @@ function registerHandlers(messageApiInstance, context) {
       const selected = uri[0].fsPath
       const relative = path.relative(root, selected)
       if (relative && relative !== '..' && !relative.startsWith('..')) {
-        return { path: relative }
+        return { path: relative, fullPath: selected }
       }
-      if (!relative || relative === '.') return { path: '.' }
+      if (!relative || relative === '.') return { path: '.', fullPath: root }
     }
     return {}
+  })
+
+  // 将导出相对路径解析为工作区内的完整路径（供前端展示）
+  messageApiInstance.registerHandler('getExportFullPath', (data) => {
+    const basePath = data && data.basePath != null ? String(data.basePath).trim() : ''
+    if (!basePath) return { fullPath: '' }
+    const root = getWorkspaceRoot()
+    const full = path.resolve(root, basePath)
+    return { fullPath: full.startsWith(root) ? full : root }
   })
 
   // 获取当前聚焦的元素信息

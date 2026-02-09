@@ -6,7 +6,7 @@ import {
   ConfigProvider,
   message,
   Space,
-  Select,
+  Radio,
   Popover,
   Form,
   Input,
@@ -183,6 +183,7 @@ export default function App() {
               arrow={false}
               content={
                 <ExportContent
+                  open={exportPopoverVisible}
                   onSync={handleExportSource}
                   onClose={() => setExportPopoverVisible(false)}
                   loading={exportLoading}
@@ -226,14 +227,16 @@ export default function App() {
 }
 
 function ExportContent(props: {
+  open?: boolean
   onClose: () => void
   onSync: (values: ExportConfig & { exportType: 'project' | 'component' }) => void
   loading?: boolean
 }) {
-  const { onClose, onSync, loading } = props
+  const { open, onClose, onSync, loading } = props
   const defaultValues: ExportConfig = {
     exportType: 'project',
     projectName: 'my_project',
+    exportDir: '.',
     ...(typeof localStorage !== 'undefined'
       ? JSON.parse(localStorage.getItem(STORAGE_KEY_EXPORT) || '{}')
       : {}),
@@ -242,6 +245,44 @@ function ExportContent(props: {
   const [formValues, setFormValues] = useState<ExportConfig>(defaultValues)
   const exportDir = Form.useWatch('exportDir', form) ?? formValues.exportDir
   const projectName = Form.useWatch('projectName', form) ?? formValues.projectName
+  const effectiveBasePath =
+    exportDir !== undefined && exportDir !== ''
+      ? `${String(exportDir).replace(/\\/g, '/').replace(/\/+$/, '')}/${projectName || ''}`
+      : projectName || ''
+
+  const [writeFullPath, setWriteFullPath] = useState('')
+  const [workspaceRootPath, setWorkspaceRootPath] = useState('')
+  useEffect(() => {
+    if (!effectiveBasePath) {
+      setWriteFullPath('')
+      return
+    }
+    vsCodeMessage?.call('getExportFullPath', { basePath: effectiveBasePath }).then((res: { fullPath?: string }) => {
+      setWriteFullPath(res?.fullPath ?? '')
+    })
+  }, [effectiveBasePath])
+  // 工作区根目录完整路径（当 exportDir 为 . 时展示）
+  useEffect(() => {
+    if (!open || exportDir !== '.') return
+    vsCodeMessage?.call('getExportFullPath', { basePath: '.' }).then((res: { fullPath?: string }) => {
+      setWorkspaceRootPath(res?.fullPath ?? '')
+    })
+  }, [open, exportDir])
+
+  // 打开弹窗时用当前 .mybricks 文件填充：项目名 = 文件名，导出目录 = 文件同级
+  useEffect(() => {
+    if (!open) return
+    vsCodeMessage?.call('getCurrentExportDefaults').then((res: { projectName?: string; exportDir?: string }) => {
+      if (res?.projectName != null || res?.exportDir != null) {
+        const updates = {
+          projectName: res.projectName ?? form.getFieldValue('projectName'),
+          exportDir: res.exportDir ?? form.getFieldValue('exportDir'),
+        }
+        form.setFieldsValue(updates)
+        setFormValues((prev) => ({ ...prev, ...updates }))
+      }
+    })
+  }, [open, form])
 
   const saveToStorage = useCallback(
     (updates: Partial<ExportConfig>) => {
@@ -277,6 +318,8 @@ function ExportContent(props: {
   const nameLabel = Form.useWatch('exportType', form) === 'component' ? '组件名称' : '项目名称'
   const namePlaceholder = Form.useWatch('exportType', form) === 'component' ? '请输入组件名称' : '请输入项目名称'
 
+  const exportDirDisplay = exportDir === '.' ? (workspaceRootPath || '工作区根目录') : exportDir
+
   return (
     <Form
       className='export-form'
@@ -285,13 +328,15 @@ function ExportContent(props: {
       size='small'
       initialValues={defaultValues}
     >
-      <Form.Item label='导出类型' name='exportType'>
-        <Select
+      <Form.Item label='导出类型' name='exportType' className='export-form-type'>
+        <Radio.Group
+          optionType='button'
+          buttonStyle='solid'
           options={[
             { value: 'project', label: '导出项目' },
             { value: 'component', label: '导出组件' },
           ]}
-          onChange={(v) => saveToStorage({ exportType: v })}
+          onChange={(e) => saveToStorage({ exportType: e.target.value })}
         />
       </Form.Item>
       <Form.Item
@@ -319,9 +364,9 @@ function ExportContent(props: {
       </Form.Item>
       <Form.Item label='导出目录' name='exportDir' shouldUpdate>
         {exportDir !== undefined && exportDir !== '' ? (
-          <div style={{ wordBreak: 'break-all' }}>
-            <span title={exportDir} style={{ marginRight: 8 }}>
-              {exportDir === '.' ? '工作区根目录' : exportDir}
+          <div className='export-form-dir'>
+            <span className='export-form-dir-path' title={exportDirDisplay}>
+              {exportDirDisplay}
             </span>
             <Button onClick={onClearDir} size='small'>
               重置
@@ -333,17 +378,17 @@ function ExportContent(props: {
           </Button>
         )}
       </Form.Item>
-      <Form.Item>
-        <Alert
-          message={
-            <Space direction='vertical' size='small'>
-              <span className='export-alert-txt'>导出：以写文件形式将出码结果写入目标目录，无 zip 包。</span>
-            </Space>
-          }
-          type='info'
-        />
-      </Form.Item>
-      <Form.Item style={{ marginBottom: 0 }}>
+      {effectiveBasePath && (
+        <Form.Item label='' className='export-form-write-path'>
+          <div className='export-form-write-path-box'>
+            <div className='export-form-write-path-desc'>源码文件将会写入到此目录</div>
+            <div className='export-form-write-path-value' title={writeFullPath || effectiveBasePath}>
+              {writeFullPath || effectiveBasePath || '正在解析…'}
+            </div>
+          </div>
+        </Form.Item>
+      )}
+      <Form.Item style={{ marginBottom: 0 }} className='export-form-actions'>
         <Flex gap='small' justify='flex-end'>
           <Button onClick={onClose}>取消</Button>
           <Button

@@ -13,8 +13,9 @@ function getFileContent(context, filePath = null) {
   try {
     // 如果指定了文件路径，直接读取该文件
     if (filePath && fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8')
-      return { content: JSON.parse(content), path: filePath }
+      const raw = fs.readFileSync(filePath, 'utf-8').trim()
+      if (!raw) return { content: null, path: filePath }
+      return { content: JSON.parse(raw), path: filePath }
     }
 
     // 没有指定文件路径，返回 null（新建项目）

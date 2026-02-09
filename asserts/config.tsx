@@ -24,7 +24,7 @@ async function config({ designerRef }) {
   return {
     //type: 'mpa', // 多页应用模式
     plugins: [
-      createAIPlugin(),
+      // createAIPlugin(),
       //servicePlugin(), // HTTP 接口连接器
     ],
 
@@ -38,8 +38,7 @@ async function config({ designerRef }) {
     comLibLoader(desc) {
       return new Promise((resolve, reject) => {
         resolve([
-          'http://localhost:20000/comlib.js',
-          // 'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.0/edit.js'
+          'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.42/2026-02-09_17-29-59/edit.js',
           'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.6/edit.js',
         ])
       })
@@ -50,7 +49,8 @@ async function config({ designerRef }) {
         console.log('>>> fileResult:', fileResult)
         const content = fileResult?.content !== undefined ? fileResult.content : fileResult
         console.log('>>> content:', content)
-        return content
+        // 空值时返回默认对象，防止下游报错
+        return content ?? '{}'
       })
     },
 

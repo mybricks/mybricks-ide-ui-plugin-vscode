@@ -2214,9 +2214,7 @@
           parser,
           uiTree
         } = context;
-        debugger
         const actions = parser(actionsStr);
-        debugger
         actions.forEach(action => {
           if (action.type === "addChild") {
             const childComId = action.params.comId;

@@ -3,13 +3,22 @@ const path = require('path')
 const vscode = require('vscode')
 const MessageAPI = require('../../../utils/messageApi')
 
+const UNNAMED_KEY = '__unnamed__'
+
 /**
- * Webview 面板管理类
+ * Webview 面板管理类（支持多文件多面板，按文件路径区分）
  */
 class WebviewPanel {
   constructor() {
-    this.currentPanel = undefined
-    this.messageApiInstance = undefined
+    /** @type {Map<string, { panel: vscode.WebviewPanel, messageApiInstance: MessageAPI }>} */
+    this.panelsByFilePath = new Map()
+    /** @type {Map<string, Promise<vscode.WebviewPanel>>} */
+    this.pendingByFilePath = new Map()
+  }
+
+  _normalizeKey(filePath) {
+    if (!filePath) return UNNAMED_KEY
+    return path.normalize(filePath)
   }
 
   /**
@@ -53,25 +62,45 @@ class WebviewPanel {
   }
 
   /**
-   * 创建或显示 webview 面板
+   * 根据文件路径取 webview 标题（文件名+扩展名）
+   * @param {string|null} filePath
+   * @returns {string}
+   */
+  _getPanelTitle(filePath) {
+    if (filePath) {
+      return path.basename(filePath)
+    }
+    return 'MyBricks'
+  }
+
+  /**
+   * 创建或显示指定文件对应的 webview 面板（同一文件复用同一面板，不同文件不同面板）
    * @param {vscode.ExtensionContext} context
    * @param {Function} registerHandlers - 注册事件处理器的函数
+   * @param {string|null} [filePath] - 当前打开的 .mybricks 文件路径，null 表示“未关联文件”的通用面板
+   * @param {function(string|null): void} [onPanelActive] - 当某面板变为可见时回调，参数为该面板对应的 filePath
    * @returns {Promise<vscode.WebviewPanel>}
    */
-  createOrShow(context, registerHandlers) {
+  createOrShow(context, registerHandlers, filePath, onPanelActive) {
+    const key = this._normalizeKey(filePath)
     const extensionUri = context.extensionUri
+    const title = this._getPanelTitle(filePath)
 
-    if (this.currentPanel) {
-      // 面板已存在，显示它
-      this.currentPanel.reveal(vscode.ViewColumn.One)
-      return Promise.resolve(this.currentPanel)
+    const existing = this.panelsByFilePath.get(key)
+    if (existing) {
+      existing.panel.title = title
+      existing.panel.reveal(vscode.ViewColumn.One)
+      if (onPanelActive) onPanelActive(filePath)
+      return Promise.resolve(existing.panel)
     }
 
-    // 创建新面板并返回 Promise
-    return new Promise((resolve) => {
-      this.currentPanel = vscode.window.createWebviewPanel(
+    const pending = this.pendingByFilePath.get(key)
+    if (pending) return pending
+
+    const promise = new Promise((resolve) => {
+      const panel = vscode.window.createWebviewPanel(
         'mybricksWeb',
-        'MyBricks',
+        title,
         vscode.ViewColumn.One,
         {
           enableScripts: true,
@@ -90,94 +119,112 @@ class WebviewPanel {
         }
       )
 
-      this.currentPanel.webview.html = this.getWebviewContent(
-        this.currentPanel.webview,
-        extensionUri
-      )
+      panel.mybricksFilePath = filePath
+      panel.webview.html = this.getWebviewContent(panel.webview, extensionUri)
 
-      // 创建消息 API 实例并注册处理器
-      const messageApiInstance = new MessageAPI(this.currentPanel)
-      this.messageApiInstance = messageApiInstance
-
-      // 创建 MyBricksAPI 代理
-      this._setupMyBricksAPI()
+      const messageApiInstance = new MessageAPI(panel)
+      this._setupMyBricksAPI(panel, messageApiInstance)
 
       if (registerHandlers) {
         registerHandlers(messageApiInstance, context)
       }
 
-      // 关闭侧边栏和底部面板
       vscode.commands.executeCommand('workbench.action.closeSidebar')
       vscode.commands.executeCommand('workbench.action.closePanel')
 
-      // 监听面板显示状态，当面板真正显示时 resolve
-      const disposable = this.currentPanel.onDidChangeViewState((e) => {
-        if (e.webviewPanel.visible) {
-          disposable.dispose()
-          resolve(this.currentPanel)
+      const viewStateDisposable = panel.onDidChangeViewState((e) => {
+        if (e.webviewPanel.visible && onPanelActive) {
+          onPanelActive(e.webviewPanel.mybricksFilePath)
         }
       })
 
-      // 面板关闭时清理
-      this.currentPanel.onDidDispose(() => {
-        this.currentPanel = undefined
-        this.messageApiInstance = undefined
-        disposable.dispose()
+      panel.onDidDispose(() => {
+        this.panelsByFilePath.delete(key)
+        viewStateDisposable.dispose()
       })
 
-      // 如果面板已经可见，立即 resolve
-      if (this.currentPanel.visible) {
-        disposable.dispose()
-        resolve(this.currentPanel)
+      this.panelsByFilePath.set(key, { panel, messageApiInstance })
+      this.pendingByFilePath.delete(key)
+      if (onPanelActive && panel.visible) onPanelActive(filePath)
+
+      const resolveOnce = (p) => {
+        resolve(p)
+        viewStateDisposable.dispose()
+      }
+      if (panel.visible) {
+        resolveOnce(panel)
+      } else {
+        const disposable = panel.onDidChangeViewState((e) => {
+          if (e.webviewPanel.visible) {
+            disposable.dispose()
+            resolveOnce(panel)
+          }
+        })
       }
     })
+
+    this.pendingByFilePath.set(key, promise)
+    return promise
   }
 
   /**
-   * 获取当前面板实例
+   * 获取指定文件路径对应的面板（不传则返回任意一个，用于兼容无文件场景）
+   * @param {string|null} [filePath]
    * @returns {vscode.WebviewPanel|undefined}
    */
-  getCurrentPanel() {
-    return this.currentPanel
+  getPanel(filePath) {
+    const key = filePath != null ? this._normalizeKey(filePath) : null
+    if (key !== null) {
+      return this.panelsByFilePath.get(key)?.panel
+    }
+    const first = this.panelsByFilePath.values().next().value
+    return first?.panel
   }
 
   /**
-   * 获取 MessageAPI 实例
+   * 是否存在任意一个面板
+   * @returns {boolean}
+   */
+  hasAnyPanel() {
+    return this.panelsByFilePath.size > 0
+  }
+
+  /**
+   * 获取指定文件路径对应的 MessageAPI
+   * @param {string|null} [filePath]
    * @returns {MessageAPI|undefined}
    */
-  getMessageAPI() {
-    return this.messageApiInstance
+  getMessageAPI(filePath) {
+    const key = filePath != null ? this._normalizeKey(filePath) : null
+    if (key !== null) {
+      return this.panelsByFilePath.get(key)?.messageApiInstance
+    }
+    const first = this.panelsByFilePath.values().next().value
+    return first?.messageApiInstance
   }
 
   /**
    * 设置 MyBricksAPI 代理
    * @private
+   * @param {vscode.WebviewPanel} panel
+   * @param {MessageAPI} messageApiInstance
    */
-  _setupMyBricksAPI() {
-    if (!this.currentPanel) {
-      return
-    }
+  _setupMyBricksAPI(panel, messageApiInstance) {
+    if (!panel || !messageApiInstance) return
 
-    const createApiProxy = (path = []) => {
+    const createApiProxy = (pathSegments = []) => {
       return new Proxy(function apiFunction() {}, {
         get: (target, prop, receiver) => {
           if (prop === Symbol.toStringTag || prop === Symbol.hasInstance || prop === 'constructor' || prop === 'prototype') {
             return target[prop]
           }
-          
-          const currentPath = [...path, String(prop)]
+          const currentPath = [...pathSegments, String(prop)]
           return createApiProxy(currentPath)
         },
-        
         apply: async (target, thisArg, args) => {
-          const fullMethodName = path.join('.')
-          
-          if (!this.messageApiInstance) {
-            throw new Error('MessageAPI 未初始化')
-          }
-          
+          const fullMethodName = pathSegments.join('.')
           try {
-            const result = await this.messageApiInstance.callWebview('callGlobalApi', {
+            const result = await messageApiInstance.callWebview('callGlobalApi', {
               methodName: fullMethodName,
               args: args
             })
@@ -188,16 +235,17 @@ class WebviewPanel {
         }
       })
     }
-    
-    this.currentPanel.webview.MyBricksAPI = createApiProxy()
+    panel.webview.MyBricksAPI = createApiProxy()
   }
 
   /**
-   * 获取 MyBricksAPI 实例
+   * 获取指定文件路径对应面板的 MyBricksAPI
+   * @param {string|null} [filePath]
    * @returns {Proxy|undefined}
    */
-  getMyBricksAPI() {
-    return this.currentPanel?.webview?.MyBricksAPI
+  getMyBricksAPI(filePath) {
+    const p = this.getPanel(filePath)
+    return p?.webview?.MyBricksAPI
   }
 }
 
