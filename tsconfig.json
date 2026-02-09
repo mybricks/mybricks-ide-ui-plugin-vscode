@@ -2,9 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": [
-      "ES2020"
-    ],
+    "lib": ["ES2020", "DOM"],
     "outDir": "out",
     "rootDir": ".",
     "strict": false,
@@ -15,16 +13,11 @@
     "allowSyntheticDefaultImports": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["node", "vscode"]
+    "jsx": "react",
+    "types": ["node", "vscode"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["asserts/*"] }
   },
-  "include": [
-    "src/**/*",
-    "utils/**/*"
-  ],
-  "exclude": [
-    "src/app.tsx",
-    "asserts/**/*",
-    "node_modules",
-    "out"
-  ]
+  "include": ["src/**/*", "utils/**/*"],
+  "exclude": ["node_modules", "out", "asserts"]
 }

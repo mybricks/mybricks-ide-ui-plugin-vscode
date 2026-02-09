@@ -5,7 +5,14 @@
   "version": "0.0.9",
   "publisher": "mybricks",
   "scripts": {
-    "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json"
+    "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json",
+    "compile": "npm run build:extension && npm run build:webview",
+    "watch": "npm run watch:extension & npm run watch:webview",
+    "build:extension": "tsc -p ./",
+    "watch:extension": "tsc -watch -p ./",
+    "build:webview": "vite build",
+    "watch:webview": "vite build --watch",
+    "dev": "npm run watch"
   },
   "repository": {
     "type": "git",
@@ -31,8 +38,25 @@
       {
         "command": "mybricks.init",
         "title": "初始化 MyBricks 环境"
+      },
+      {
+        "command": "mybricks.openFile",
+        "title": "用 MyBricks 打开"
+      },
+      {
+        "command": "mybricks.enableMCPService",
+        "title": "开启 MCP 服务"
       }
     ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "mybricks.openFile",
+          "when": "resourceExtname == .mybricks",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -47,14 +71,18 @@
         {
           "type": "webview",
           "id": "mybricks.ide",
-          "name": "MyBricks IDE",
-          "visibility": "hidden"
+          "name": "MyBricks IDE"
         }
       ]
     },
     "configuration": {
       "title": "MyBricks",
       "properties": {
+        "mybricks.mcp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否开启 MCP 服务（设计器与 AI 的桥接）。可通过命令「开启 MCP 服务」设为 true。"
+        },
         "mybricks.mcp.port": {
           "type": "number",
           "default": 3001,
@@ -67,5 +95,18 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3"
+  },
+  "devDependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/vscode": "^1.60.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "antd": "^6.2.3",
+    "fs-extra": "^11.3.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12"
   }
 }

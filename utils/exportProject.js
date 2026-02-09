@@ -1,6 +1,7 @@
 const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
+const { getWorkspaceFolder } = require('./utils')
 
 /**
  * 导出 MyBricks 项目
@@ -10,14 +11,8 @@ const path = require('path')
  */
 async function exportProject(context, configJson) {
   try {
-    const workspaceFolders = vscode.workspace.workspaceFolders
-    
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      vscode.window.showErrorMessage('未打开工作区')
-      return { success: false, message: '未打开工作区' }
-    }
-
-    const rootPath = workspaceFolders[0].uri.fsPath
+    const workspaceFolder = getWorkspaceFolder(context)
+    const rootPath = workspaceFolder.fsPath
     
     // 让用户选择导出路径
     const defaultUri = vscode.Uri.file(path.join(rootPath, 'mybricks-export'))

@@ -23,21 +23,18 @@
     <!-- 样式文件 -->
     <link href="./asserts/app.css" rel="stylesheet" type="text/css" />
 
-    <!-- React 18 核心库 -->
+    <!-- React 18 核心库 (CDN) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
 
-    <!-- Babel Standalone - 支持在浏览器内编译 TSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Ant Design 5 组件库 -->
+    <!-- Ant Design 5 组件库 (CDN) -->
     <script src="./asserts/cssinjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/dayjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/antd/5.22.7/antd.min.js"></script>
     <script src="./asserts/antd@5.21.4.min.js"></script>
     <script src="https://f2.eckwai.com/kos/nlav11092/fangzhou/pub/temp/1690444248634.ant-design-icons_4.7.0_min.js"></script>
 
-    <!-- MyBricks SPA Designer 引擎 -->
+    <!-- MyBricks SPA Designer 引擎 (CDN) -->
     <script src="https://p4-ec.eckwai.com/kos/nlav12333/mybricks/designer-spa/3.9.892/index.min.js"></script>
 
 
@@ -70,20 +67,7 @@
       })
     </script>
 
-    <!-- MyBricks 配置文件 -->
-    <script
-      type="text/babel"
-      data-type="module"
-      data-presets="react,typescript"
-      src="./asserts/config.tsx"
-    ></script>
-
-    <!-- MyBricks 主应用入口 -->
-    <script
-      type="text/babel"
-      data-type="module"
-      data-presets="react,typescript"
-      src="./asserts/app.tsx"
-    ></script>
+    <!-- 使用 Vite 构建的文件 -->
+    <script src="./out/webview/app.js"></script>
   </body>
 </html>

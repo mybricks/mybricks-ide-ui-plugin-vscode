@@ -35,6 +35,20 @@ class WebviewPanel {
       }
     )
 
+    // 将 ./out/webview/... 路径转成 webview 资源 URI
+    htmlContent = htmlContent.replace(
+      /\.\/out\/webview\/([^"'\s)]+)/g,
+      (_, relPath) => {
+        const resourceUri = vscode.Uri.joinPath(
+          extensionUri,
+          'out',
+          'webview',
+          relPath
+        )
+        return webview.asWebviewUri(resourceUri).toString()
+      }
+    )
+
     return htmlContent
   }
 
@@ -64,6 +78,7 @@ class WebviewPanel {
           retainContextWhenHidden: true,
           localResourceRoots: [
             vscode.Uri.joinPath(extensionUri, 'asserts'),
+            vscode.Uri.joinPath(extensionUri, 'out'),
             extensionUri,
           ],
           portMapping: [

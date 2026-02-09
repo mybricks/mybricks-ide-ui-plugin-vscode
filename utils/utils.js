@@ -31,23 +31,19 @@ function getWorkspaceFolder(context) {
 }
 
 /**
- * 读取工作区的fide.project.config.json，判断是不是低码项目
+ * 获取目标 IDE 配置目录（优先级：.claude > .cursor）
+ * @param {string} projectRoot - 项目根目录
+ * @returns {string} 目标目录路径
  */
-const PROJECT_CONFIG_FILE = 'fide.project.config.json'
-const MYBRICKS_PROJECT_KEY = 'mybricksType'
-function isMybricksProject(context) {
-  const defaultUri = getWorkspaceFolder(context)
-  const filePath = path.join(defaultUri.fsPath, PROJECT_CONFIG_FILE)
-  try {
-    const projectConfigContent = fs.readFileSync(filePath, 'utf8')
-    const projectConfig = JSON.parse(projectConfigContent)
-    return projectConfig[MYBRICKS_PROJECT_KEY] === 1
-  } catch (error) {
-    return false
-  }
+function getTargetIDEDir(projectRoot) {
+  const claudeDir = path.join(projectRoot, '.claude')
+  if (fs.existsSync(claudeDir)) return claudeDir
+  const cursorDir = path.join(projectRoot, '.cursor')
+  if (fs.existsSync(cursorDir)) return cursorDir
+  return claudeDir
 }
 
 module.exports = {
   getWorkspaceFolder,
-  isMybricksProject,
+  getTargetIDEDir,
 }

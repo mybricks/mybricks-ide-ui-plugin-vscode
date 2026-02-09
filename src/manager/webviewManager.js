@@ -14,6 +14,7 @@ class WebviewManager extends EventEmitter {
     this.context = null
     this.isInitializing = false
     this.initializationPromise = null
+    this.currentFilePath = null // 当前打开的 .mybricks 文件路径
   }
 
   /**
@@ -98,6 +99,22 @@ class WebviewManager extends EventEmitter {
    */
   getMyBricksAPI() {
     return this.webviewPanel.getMyBricksAPI()
+  }
+
+  /**
+   * 设置当前打开的文件路径
+   * @param {string|null} filePath - 文件路径
+   */
+  setCurrentFilePath(filePath) {
+    this.currentFilePath = filePath
+  }
+
+  /**
+   * 获取当前打开的文件路径
+   * @returns {string|null}
+   */
+  getCurrentFilePath() {
+    return this.currentFilePath
   }
 }
 

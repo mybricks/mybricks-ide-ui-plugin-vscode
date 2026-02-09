@@ -6,6 +6,7 @@ const z = require('zod/v4')
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js')
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js')
 const { getUserRequireGuide, getComponentDocs } = require('./prompt')
+const { getStyleGuide } = require('./design');
 const { getInstance: getWebviewManager } = require('../manager/webviewManager')
 
 let server = null
@@ -13,6 +14,10 @@ let mcpServer = null
 let transport = null
 let serverPort = 3001
 let extensionContext = null
+
+/** 按 pageId 收集生成 UI 时的所有 actionsString，用于在 complete 时写入 .test 目录 */
+const pageIdActionsMap = new Map()
+const TEST_OUTPUT_DIR = '/Users/cocolbell/Desktop/projects/mybricks/mybricks-ide-ui-plugin-vscode/.test'
 
 /**
  * 启动 MCP HTTP 服务器（使用 Streamable HTTP 传输）
@@ -102,13 +107,10 @@ async function startMCPHttpServer(context, port = 3001) {
     }
   })
 
-  // 启动服务器
+  // 启动服务器（成功提示由「开启 MCP 服务」命令或前端统一展示）
   server.listen(serverPort, 'localhost', () => {
     console.log(
       `[MCP Server] HTTP server running on http://localhost:${serverPort}`
-    )
-    vscode.window.showInformationMessage(
-      `MyBricks MCP Server started on port ${serverPort}`
     )
   })
 
@@ -455,6 +457,28 @@ async function registerTools(server, context) {
     }
   )
 
+  // 注册获取设计风格指南工具
+  server.registerTool(
+    'get-style-guide',
+    {
+      title: 'Get Design Style Guide',
+      description: '获取设计风格指南，包括内容建议、设计风格、设计原则、设计规范等',
+      inputSchema: {
+        userRequire: z.string().describe('用户需求，用于生成设计风格指南，限制15字')
+      }
+    },
+    async ({ userRequire }) => {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: getStyleGuide(userRequire)
+          }
+        ]
+      }
+    }
+  )
+
   server.registerTool(
     'generate-ui-start',
     {
@@ -467,6 +491,8 @@ async function registerTools(server, context) {
     async ({ pageId }) => {
       const checkResult = checkWebviewInitialized()
       if (checkResult) return checkResult
+
+      pageIdActionsMap.set(pageId, [])
 
       const webview = getWebviewPanelInstance()
       await webview.MyBricksAPI.createPageOperator(pageId)
@@ -497,6 +523,10 @@ async function registerTools(server, context) {
       const checkResult = checkWebviewInitialized()
       if (checkResult) return checkResult
 
+      const collected = pageIdActionsMap.get(pageId) || []
+      collected.push(actionsString)
+      pageIdActionsMap.set(pageId, collected)
+
       const webview = getWebviewPanelInstance()
       await webview.MyBricksAPI.updatePageOperator(pageId, actionsString)
 
@@ -523,6 +553,20 @@ async function registerTools(server, context) {
 
       const webview = getWebviewPanelInstance()
       await webview.MyBricksAPI.completePageOperator(pageId)
+
+      const allActions = pageIdActionsMap.get(pageId) || []
+      if (allActions.length > 0) {
+        try {
+          if (!fs.existsSync(TEST_OUTPUT_DIR)) {
+            fs.mkdirSync(TEST_OUTPUT_DIR, { recursive: true })
+          }
+          const filePath = path.join(TEST_OUTPUT_DIR, pageId)
+          fs.writeFileSync(filePath, allActions.join('\n'), 'utf8')
+        } catch (err) {
+          console.error('[MCP Server] 写入 .test 目录失败:', err)
+        }
+        pageIdActionsMap.delete(pageId)
+      }
 
       return {
         content: [
@@ -593,9 +637,20 @@ function getServerUrl() {
   return `http://localhost:${serverPort}`
 }
 
+/**
+ * 是否已启动 MCP HTTP 服务器
+ */
+function isMCPServerRunning() {
+  return server != null
+}
+
+const { setupMCPWorkspace } = require('./workspaceSetup')
+
 module.exports = {
   startMCPHttpServer,
   stopMCPHttpServer,
   getServerPort,
   getServerUrl,
+  isMCPServerRunning,
+  setupMCPWorkspace,
 }
