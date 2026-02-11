@@ -23,12 +23,12 @@ function registerSubscriptions(context) {
   const webviewManager = getWebviewManager()
   webviewManager.initialize(context)
 
-  // 注册命令：打开 MyBricks 设计器
+  // 注册命令：打开 MyBricks 设计器（若存在由 vscode:// URI 传入的 path 则打开该文件）
   const openWebCommand = vscode.commands.registerCommand(
     'mybricks.openIDE',
     async () => {
-      // 清除当前文件路径（因为是手动打开，不关联任何文件）
-      webviewManager.setCurrentFilePath(null)
+      const pendingPath = webviewManager.takePendingFilePathFromUri()
+      webviewManager.setCurrentFilePath(pendingPath ?? null)
       return webviewManager.ensurePanel()
     }
   )

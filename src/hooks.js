@@ -1,6 +1,7 @@
 const vscode = require('vscode')
 const { registerSubscriptions } = require('./subscriptions')
 const { stopMCPHttpServer } = require('./mcp-server')
+const { registerUriHandler } = require('./uriHandler')
 
 /**
  * 插件激活时的生命周期钩子
@@ -9,6 +10,9 @@ const { stopMCPHttpServer } = require('./mcp-server')
 function onActivate(context) {
   // 注册所有订阅（命令、视图等）
   registerSubscriptions(context)
+
+  // 注册 URI Handler：浏览器可通过 vscode://mybricks.mybricks-webview/open 唤起 Cursor 并打开设计器
+  context.subscriptions.push(registerUriHandler(context))
 
   // MCP 服务不在此处启动，需打开设计器后通过命令「开启 MCP 服务」触发
   // 不再默认打开 MyBricks 设计器，用户通过命令或打开 .mybricks 文件进入

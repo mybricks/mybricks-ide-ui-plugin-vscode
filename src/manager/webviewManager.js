@@ -13,6 +13,7 @@ class WebviewManager extends EventEmitter {
     this.webviewPanel = new WebviewPanel()
     this.context = null
     this.currentFilePath = null // 当前“激活”的文件路径（最后打开或最后聚焦的面板对应文件）
+    this.pendingFilePathFromUri = null // 由 vscode:// URI 传入的 path，供 openIDE 命令使用一次后清除
   }
 
   /**
@@ -96,6 +97,24 @@ class WebviewManager extends EventEmitter {
    */
   getCurrentFilePath() {
     return this.currentFilePath
+  }
+
+  /**
+   * 设置由 URI 传入的待打开路径（由 openIDE 命令消费一次）
+   * @param {string|null} filePath
+   */
+  setPendingFilePathFromUri(filePath) {
+    this.pendingFilePathFromUri = filePath
+  }
+
+  /**
+   * 取走并清除 pending path（供 openIDE 命令使用）
+   * @returns {string|null}
+   */
+  takePendingFilePathFromUri() {
+    const path = this.pendingFilePathFromUri
+    this.pendingFilePathFromUri = null
+    return path
   }
 }
 
