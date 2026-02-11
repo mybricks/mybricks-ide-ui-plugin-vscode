@@ -15,7 +15,7 @@ function onActivate(context) {
   context.subscriptions.push(registerUriHandler(context))
 
   // MCP 服务不在此处启动，需打开设计器后通过命令「开启 MCP 服务」触发
-  // 不再默认打开 MyBricks 设计器，用户通过命令或打开 .mybricks 文件进入
+  // 不再默认打开 MyBricks 设计器，用户通过命令或打开 .ui / .mybricks 文件进入
 
   // 调试前端时自动打开开发者工具（需先手动打开设计器）
   if (process.env.MYBRICKS_FRONT_END_DEBUG_MODE === 'true') {

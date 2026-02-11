@@ -15,8 +15,8 @@ import {
   Flex,
   Tooltip,
 } from 'antd'
-import { VerticalAlignBottomOutlined } from '@ant-design/icons'
-import toCode from '@mybricks/to-target-code'
+import { VerticalAlignBottomOutlined, CloseOutlined } from '@ant-design/icons'
+import ExportCode from './components/export-code'
 import { config as getDesignerConfig } from './config'
 import { useMCP } from './ai/mcp'
 
@@ -26,16 +26,9 @@ const { SPADesigner } = (window as any).mybricks
 const ANTD_CONFIG = {
   theme: {
     token: {
-      colorPrimary: '#fa6400',
+      colorPrimary: 'var(--mybricks-color-primary)',
     },
   },
-}
-
-const STORAGE_KEY_EXPORT = '--mybricks-export-config-'
-type ExportConfig = {
-  exportType: 'project' | 'component'
-  projectName: string
-  exportDir?: string
 }
 
 const vsCodeMessage = (window as any).webViewMessageApi
@@ -48,8 +41,7 @@ export default function App() {
   const [changed, setChanged] = useState(0)
 
   const [exportPopoverVisible, setExportPopoverVisible] = useState(false)
-  const [exportLoading, setExportLoading] = useState(false)
-
+  
   // 消息提示处理
   const onMessage = useCallback((type, msg, duration = 3) => {
     message.destroy()
@@ -65,14 +57,34 @@ export default function App() {
   // 初始化配置
   const [initSuccess, setInitSuccess] = useState(false)
   const config = useRef(null)
+  // 是否已配置 AI Token（用于展示横幅），监听 aiTokenChanged 更新
+  const [hasAIToken, setHasAIToken] = useState(true)
+  const [aiTokenBannerClosed, setAITokenBannerClosed] = useState(false)
+
   useEffect(() => {
-    getDesignerConfig({
-      designerRef,
-    }).then((_config) => {
+    getDesignerConfig({ designerRef }).then((_config) => {
       setInitSuccess(true)
       config.current = _config
     })
   }, [designerRef])
+
+  const refreshAIToken = useCallback(() => {
+    if (!vsCodeMessage?.call) return
+    vsCodeMessage.call('getAIToken').then((token: string) => {
+      setHasAIToken(typeof token === 'string' && token.trim() !== '')
+    }).catch(() => setHasAIToken(false))
+  }, [])
+
+  useEffect(() => {
+    if (!initSuccess) return
+    refreshAIToken()
+  }, [initSuccess, refreshAIToken])
+
+  useEffect(() => {
+    if (!vsCodeMessage?.on) return
+    const unsub = vsCodeMessage.on('aiTokenChanged', refreshAIToken)
+    return () => unsub?.()
+  }, [refreshAIToken])
 
   // MCP 状态与监听、handler 注册（不默认加载；开启但服务/ skill 未就绪时在设计器内提示）
   const { mcpEnabled, mcpServerReady } = useMCP(vsCodeMessage, {
@@ -80,7 +92,7 @@ export default function App() {
     myBricksAPIRefGetter: () => myBricksAPIRef,
   })
 
-  // 保存：直接保存 dump() 的结果到 .mybricks 文件
+  // 保存：直接保存 dump() 的结果到当前设计文件（.ui / .mybricks）
   const save = useCallback(async () => {
     const designer = designerRef.current
     if (!designer) {
@@ -119,50 +131,6 @@ export default function App() {
     }
   }, [])
 
-  // 导出源码（出码逻辑）：同步到指定目录，无 zip
-  const handleExportSource = useCallback(
-    async (values: ExportConfig & { exportType: 'project' | 'component' }) => {
-      setExportLoading(true)
-      onMessage('loading', '导出中...', 0)
-      try {
-        const configJson = designerRef.current?.toJSON({
-          withDiagrams: true,
-          withIOSchema: true,
-        })
-        if (!configJson) {
-          onMessage('error', '获取页面数据失败')
-          return
-        }
-        const result = toCode(configJson, { target: 'react' })
-        if (!result || !Array.isArray(result) || result.length === 0) {
-          onMessage('error', '代码生成失败，返回结果格式不正确')
-          return
-        }
-        const projectMode = values.exportType === 'project'
-        const basePath = values.exportDir
-          ? `${values.exportDir.replace(/\\/g, '/').replace(/\/+$/, '')}/${values.projectName}`
-          : values.projectName
-        const writeRes = await vsCodeMessage.call('writeWorkspaceFiles', {
-          basePath,
-          results: result,
-          projectMode,
-        })
-        if (writeRes?.error) {
-          onMessage('error', `写入工作区失败: ${writeRes.error}`)
-          return
-        }
-        const written = (writeRes && writeRes.written) || []
-        onMessage('success', `代码已导出到 ${basePath}${written.length ? ` (${written.length} 个文件)` : ''}`)
-        setExportPopoverVisible(false)
-      } catch (error) {
-        onMessage('error', error instanceof Error ? error.message : '导出失败')
-      } finally {
-        setExportLoading(false)
-      }
-    },
-    []
-  )
-
   return (
     <ConfigProvider {...ANTD_CONFIG}>
       <div className='ide'>
@@ -174,7 +142,7 @@ export default function App() {
             <button className={'button primary'} onClick={save}>
               {changed ? '*' : ''}保存
             </button>
-            <Popover
+            {/* <Popover
               title='导出源码'
               open={exportPopoverVisible}
               onOpenChange={setExportPopoverVisible}
@@ -182,11 +150,9 @@ export default function App() {
               placement='bottomRight'
               arrow={false}
               content={
-                <ExportContent
-                  open={exportPopoverVisible}
-                  onSync={handleExportSource}
+                <ExportCode
+                  designerRef={designerRef}
                   onClose={() => setExportPopoverVisible(false)}
-                  loading={exportLoading}
                 />
               }
             >
@@ -196,12 +162,48 @@ export default function App() {
                   导出源码
                 </button>
               </Tooltip>
-            </Popover>
+            </Popover> */}
           </Space>
         </div>
 
         {/* 设计器主区域 */}
         <div className={'designer'}>
+          {initSuccess && !hasAIToken && !aiTokenBannerClosed && (
+            <div className='ai-token-banner'>
+              <div className='ai-token-banner-row'>
+                <span className='ai-token-banner-desc'>未配置请求凭证，所有AI 能力将不可用。</span>
+                <span
+                  className='ai-token-banner-action'
+                  role='button'
+                  tabIndex={0}
+                  onClick={async () => {
+                    try {
+                      if (vsCodeMessage?.call) {
+                        await vsCodeMessage.call('openAISettings')
+                      } else {
+                        message.info('请打开设置，搜索「MyBricks」→ AI 请求凭证')
+                      }
+                    } catch {
+                      message.info('请打开设置，搜索「MyBricks」→ AI 请求凭证')
+                    }
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLElement).click()}
+                >
+                  去配置
+                </span>
+                <span
+                  className='ai-token-banner-close'
+                  onClick={() => setAITokenBannerClosed(true)}
+                  role='button'
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && setAITokenBannerClosed(true)}
+                  aria-label='关闭'
+                >
+                  <CloseOutlined />
+                </span>
+              </div>
+            </div>
+          )}
           {mcpEnabled && !mcpServerReady && (
             <Alert
               message="MCP 已开启，但服务尚未连接"
@@ -223,185 +225,5 @@ export default function App() {
         </div>
       </div>
     </ConfigProvider>
-  )
-}
-
-function ExportContent(props: {
-  open?: boolean
-  onClose: () => void
-  onSync: (values: ExportConfig & { exportType: 'project' | 'component' }) => void
-  loading?: boolean
-}) {
-  const { open, onClose, onSync, loading } = props
-  const defaultValues: ExportConfig = {
-    exportType: 'component',
-    projectName: 'my_project',
-    exportDir: '.',
-    ...(typeof localStorage !== 'undefined'
-      ? JSON.parse(localStorage.getItem(STORAGE_KEY_EXPORT) || '{}')
-      : {}),
-  }
-  const [form] = Form.useForm()
-  const [formValues, setFormValues] = useState<ExportConfig>(defaultValues)
-  const exportDir = Form.useWatch('exportDir', form) ?? formValues.exportDir
-  const projectName = Form.useWatch('projectName', form) ?? formValues.projectName
-  const effectiveBasePath =
-    exportDir !== undefined && exportDir !== ''
-      ? `${String(exportDir).replace(/\\/g, '/').replace(/\/+$/, '')}/${projectName || ''}`
-      : projectName || ''
-
-  const [writeFullPath, setWriteFullPath] = useState('')
-  useEffect(() => {
-    if (!effectiveBasePath) {
-      setWriteFullPath('')
-      console.log('[导出] effectiveBasePath 为空，清空 writeFullPath')
-      return
-    }
-    console.log('[导出] effectiveBasePath 变化，请求完整路径', { effectiveBasePath })
-    vsCodeMessage?.call('getExportFullPath', { basePath: effectiveBasePath }).then((res: { fullPath?: string }) => {
-      const full = res?.fullPath ?? effectiveBasePath
-      setWriteFullPath(full)
-      console.log('[导出] getExportFullPath 返回', { basePath: effectiveBasePath, fullPath: full })
-    })
-  }, [effectiveBasePath])
-
-  // 打开弹窗时用当前 .mybricks 文件填充：项目名 = 文件名，导出目录 = 文件同级
-  useEffect(() => {
-    if (!open) return
-    console.log('[导出] 弹窗打开，请求 getCurrentExportDefaults')
-    vsCodeMessage?.call('getCurrentExportDefaults').then((res: { projectName?: string; exportDir?: string }) => {
-      console.log('[导出] getCurrentExportDefaults 返回', res)
-      if (res?.projectName != null || res?.exportDir != null) {
-        const updates = {
-          projectName: res.projectName ?? form.getFieldValue('projectName'),
-          exportDir: res.exportDir ?? form.getFieldValue('exportDir'),
-        }
-        form.setFieldsValue(updates)
-        setFormValues((prev) => ({ ...prev, ...updates }))
-      }
-    })
-  }, [open, form])
-
-  const saveToStorage = useCallback(
-    (updates: Partial<ExportConfig>) => {
-      const next = { ...form.getFieldsValue(), ...updates } as ExportConfig
-      setFormValues(next)
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY_EXPORT, JSON.stringify(next))
-      }
-    },
-    [form]
-  )
-
-  const onSelectDir = useCallback(() => {
-    console.log('[导出] 用户点击选择路径，调用 selectExportDir')
-    vsCodeMessage?.call('selectExportDir').then((res: { path?: string }) => {
-      console.log('[导出] selectExportDir 返回', res)
-      if (res?.path !== undefined) {
-        const projectNameVal = form.getFieldValue('projectName') || ''
-        const newBasePath = `${String(res.path).replace(/\\/g, '/').replace(/\/+$/, '')}/${projectNameVal}`
-        console.log('[导出] 设置 exportDir 并回显', { selectedPath: res.path, projectName: projectNameVal, newBasePath })
-        form.setFieldValue('exportDir', res.path)
-        setFormValues((prev) => ({ ...prev, exportDir: res.path }))
-        saveToStorage({ exportDir: res.path })
-        // 选择后立即请求完整路径并回显
-        vsCodeMessage?.call('getExportFullPath', { basePath: newBasePath }).then((fullRes: { fullPath?: string }) => {
-          const full = fullRes?.fullPath ?? newBasePath
-          setWriteFullPath(full)
-          console.log('[导出] 选择路径后 getExportFullPath 返回', { newBasePath, fullPath: full })
-        })
-      } else {
-        console.log('[导出] selectExportDir 未返回 path，可能用户取消选择')
-      }
-    })
-  }, [form, saveToStorage])
-
-  const handleSync = useCallback(() => {
-    form.validateFields().then((values: ExportConfig) => {
-      onSync({ ...values, exportType: values.exportType || 'project' })
-    })
-  }, [form, onSync])
-
-  return (
-    <Form
-      className='export-form'
-      form={form}
-      layout='vertical'
-      size='small'
-      initialValues={defaultValues}
-    >
-      <Form.Item name='exportDir' noStyle>
-        <Input style={{ display: 'none' }} />
-      </Form.Item>
-      <Form.Item label='导出类型' name='exportType' className='export-form-type'>
-        <Radio.Group onChange={(e) => saveToStorage({ exportType: e.target.value })}>
-          <Space direction='vertical' size={0} style={{ width: '100%' }}>
-            <Radio value='component'>
-              <span className='export-form-radio-block'>
-                <span className='export-form-radio-label'>组件源码</span>
-                <span className='export-form-radio-desc'>可嵌入到现有项目中作为组件使用</span>
-              </span>
-            </Radio>
-            <Radio value='project'>
-              <span className='export-form-radio-block'>
-                <span className='export-form-radio-label'>项目源码</span>
-                <span className='export-form-radio-desc'>独立可运行，可直接启动预览</span>
-              </span>
-            </Radio>
-          </Space>
-        </Radio.Group>
-      </Form.Item>
-      <Form.Item
-        label='文件夹'
-        name='projectName'
-        rules={[
-          {
-            validator: (_, value: string) =>
-              /^[a-zA-Z][a-zA-Z0-9_]*$/.test(value ?? '')
-                ? Promise.resolve()
-                : Promise.reject(
-                    new Error('以字母开头，仅支持字母、数字以及下划线')
-                  ),
-          },
-        ]}
-      >
-        <Input
-          placeholder='请输入文件夹名'
-          onBlur={() => {
-            form.validateFields(['projectName']).then((values: ExportConfig) => {
-              saveToStorage({ projectName: values.projectName })
-            })
-          }}
-        />
-      </Form.Item>
-      {effectiveBasePath && (
-        <Form.Item label='' className='export-form-write-path'>
-          <div className='export-form-write-path-box'>
-            <div className='export-form-write-path-desc'>源码文件将会写入到此目录</div>
-            <div className='export-form-write-path-row'>
-              <div className='export-form-write-path-value' title={writeFullPath || effectiveBasePath}>
-                {writeFullPath || effectiveBasePath || '正在解析…'}
-              </div>
-              <span className='export-form-write-path-select' onClick={onSelectDir} role='button' tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onSelectDir()}>
-                选择路径
-              </span>
-            </div>
-          </div>
-        </Form.Item>
-      )}
-      <Form.Item style={{ marginBottom: 0 }} className='export-form-actions'>
-        <Flex gap='small' justify='flex-end'>
-          <Button onClick={onClose}>取消</Button>
-          <Button
-            type='primary'
-            disabled={!projectName}
-            loading={loading}
-            onClick={handleSync}
-          >
-            导出
-          </Button>
-        </Flex>
-      </Form.Item>
-    </Form>
   )
 }

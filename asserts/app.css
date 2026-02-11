@@ -92,6 +92,57 @@ body {
 .designer {
   flex: 1;
   overflow: hidden;
+  position: relative;
+}
+
+/* 未配置 AI Token 的悬浮可关闭提示条，不占用设计器布局 */
+.ai-token-banner {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 106;
+  background: #f5f7fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 6px 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 0 12px rgba(250, 100, 0, 0.4), 0 0 24px rgba(250, 100, 0, 0.25);
+}
+.ai-token-banner-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ai-token-banner-desc {
+  font-size: 12px;
+  color: #595959;
+  line-height: 1.45;
+  margin-right: 40px;
+}
+.ai-token-banner-action {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--mybricks-color-primary);
+  cursor: pointer;
+  font-weight: 500;
+}
+.ai-token-banner-action:hover {
+  color: var(--mybricks-color-primary);
+}
+.ai-token-banner-close {
+  flex-shrink: 0;
+  margin-left: 2px;
+  padding: 2px;
+  font-size: 10px;
+  color: #8c8c8c;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ai-token-banner-close:hover {
+  color: #262626;
 }
 
 .export-form {
@@ -195,16 +246,44 @@ body {
 .export-form-write-path-select {
   flex-shrink: 0;
   font-size: 12px;
-  color: #fa6400;
+  color: var(--mybricks-color-primary);
   cursor: pointer;
   font-weight: 500;
 }
 .export-form-write-path-select:hover {
-  color: #e85a00;
+  color: var(--mybricks-color-primary);
 }
 .export-form-actions {
   padding-top: 4px;
   border-top: 1px solid #f0f0f0;
+}
+
+/* 与 .toolbar .button / .primary 保持一致 */
+.export-form .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 4px 0px;
+  gap: 8px;
+  cursor: pointer;
+  background-color: #fff;
+  font-size: 11px !important;
+}
+.export-form .primary {
+  background-color: var(--mybricks-color-primary);
+  color: #fff;
+  font-weight: bold;
+  border: 0;
+}
+
+.export-form .secondary {
+  background-color: #fff;
+  color: var(--mybricks-color-primary);
+  font-weight: bold;
+  border: 1px solid var(--mybricks-color-primary);
 }
 
 .ant-popover-title {

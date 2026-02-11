@@ -1,6 +1,6 @@
 {
   "name": "mybricks-webview",
-  "displayName": "MyBricks.ai",
+  "displayName": "VibeUI",
   "description": "MyBricks.ai 可视化开发平台 - VSCode 集成版，支持小程序、H5 页面可视化搭建",
   "icon": "images/mybricks.png",
   "version": "0.0.10",
@@ -54,7 +54,7 @@
       "explorer/context": [
         {
           "command": "mybricks.openFile",
-          "when": "resourceExtname == .mybricks",
+          "when": "resourceExtname == .mybricks || resourceExtname == .ui",
           "group": "navigation"
         }
       ]
@@ -64,7 +64,7 @@
         {
           "id": "mybricks-sidebar",
           "title": "MyBricks",
-          "icon": "asserts/icon.svg"
+          "icon": "asserts/sidebar_icon.png"
         }
       ]
     },
@@ -83,14 +83,18 @@
         "mybricks.mcp.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "是否开启 MCP 服务（设计器与 AI 的桥接）。可通过命令「开启 MCP 服务」设为 true。"
+          "description": "是否开启 MCP 服务"
         },
-        "mybricks.mcp.port": {
-          "type": "number",
-          "default": 3001,
-          "description": "MCP HTTP 服务器端口号",
-          "minimum": 1000,
-          "maximum": 65535
+        "mybricks.ai.token": {
+          "type": "string",
+          "default": "",
+          "description": "AI 请求凭证（Token），用于设计器内 AI 能力。请在 MyBricks 平台获取 Token 后填写。"
+        },
+        "mybricks.preferredFileExtension": {
+          "type": "string",
+          "default": ".ui",
+          "enum": [".ui", ".mybricks"],
+          "description": "新建/另存为时默认使用的文件后缀；同时支持 .ui 与 .mybricks 打开。"
         }
       }
     }

@@ -2,6 +2,7 @@ const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
 const { getWorkspaceFolder } = require('./utils')
+const { getPreferredExtension } = require('../src/fileExtension')
 
 /**
  * 获取 MyBricks 项目文件内容及路径（用于保存时判断是否直接写回当前文件）
@@ -43,7 +44,7 @@ function saveFileContent(context, data) {
 }
 
 /**
- * 保存项目：若有当前打开的 .mybricks 文件则直接写回，否则弹窗选择保存位置
+ * 保存项目：若有当前打开的设计文件（.ui / .mybricks）则直接写回，否则弹窗选择保存位置（默认使用配置的优先后缀）
  * @param {vscode.ExtensionContext} context - 扩展上下文
  * @param {Object} saveContent - 要保存的项目数据
  * @param {string|null} [currentFilePath] - 当前项目文件路径（有则直接保存，不弹窗）
@@ -54,16 +55,17 @@ async function saveProject(context, saveContent, currentFilePath) {
     let savePath = currentFilePath && fs.existsSync(currentFilePath) ? currentFilePath : null
 
     if (!savePath) {
+      const preferredExt = getPreferredExtension()
       const workspaceFolder = getWorkspaceFolder(context)
-      const defaultUri = vscode.Uri.file(path.join(workspaceFolder.fsPath, 'project.mybricks'))
+      const defaultUri = vscode.Uri.file(path.join(workspaceFolder.fsPath, 'project' + preferredExt))
       const uri = await vscode.window.showSaveDialog({
         defaultUri,
-        filters: { 'MyBricks 项目': ['mybricks'], 'All Files': ['*'] },
+        filters: { 'MyBricks 设计文件': ['ui', 'mybricks'], 'All Files': ['*'] },
         title: '保存 MyBricks 项目',
       })
       if (!uri) return { success: false, message: '用户取消保存' }
       savePath = uri.fsPath
-      if (!path.extname(savePath)) savePath = savePath + '.mybricks'
+      if (!path.extname(savePath)) savePath = savePath + preferredExt
     }
 
     const dir = path.dirname(savePath)

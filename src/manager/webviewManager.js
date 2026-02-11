@@ -31,6 +31,7 @@ class WebviewManager extends EventEmitter {
    * @returns {Promise<vscode.WebviewPanel>}
    */
   async ensurePanel() {
+    console.log(`[MyBricks:webviewManager] ensurePanel 调用 currentFilePath=${this.currentFilePath}`)
     const panel = await this.webviewPanel.createOrShow(
       this.context,
       registerHandlers,
@@ -39,8 +40,78 @@ class WebviewManager extends EventEmitter {
         this.currentFilePath = filePath
       }
     )
+    console.log(`[MyBricks:webviewManager] ensurePanel 完成 panel 存在=${!!panel}`)
     this.emit('panelOpened', { panel })
+    
+    // 记录最近打开的文件
+    if (this.currentFilePath) {
+      this.addRecentFile(this.currentFilePath)
+    }
+
     return panel
+  }
+
+  /**
+   * 添加最近打开的文件
+   * @param {string} filePath 
+   */
+  async addRecentFile(filePath) {
+    if (!this.context) return
+    
+    const maxCount = 10
+    let recentFiles = this.context.globalState.get('mybricks.recentFiles', [])
+    
+    // 移除已存在的当前路径（避免重复，并将其置顶）
+    recentFiles = recentFiles.filter(f => f !== filePath)
+    
+    // 添加到开头
+    recentFiles.unshift(filePath)
+    
+    // 限制数量
+    if (recentFiles.length > maxCount) {
+      recentFiles = recentFiles.slice(0, maxCount)
+    }
+    
+    await this.context.globalState.update('mybricks.recentFiles', recentFiles)
+    
+    // 通知侧边栏更新
+    this.notifySidebarRecentFiles()
+  }
+
+  /**
+   * 获取最近打开的文件列表
+   * @returns {string[]}
+   */
+  getRecentFiles() {
+    if (!this.context) return []
+    return this.context.globalState.get('mybricks.recentFiles', [])
+  }
+
+  /**
+   * 移除最近打开的文件
+   * @param {string} filePath 
+   */
+  async removeRecentFile(filePath) {
+    if (!this.context) return
+    
+    let recentFiles = this.context.globalState.get('mybricks.recentFiles', [])
+    recentFiles = recentFiles.filter(f => f !== filePath)
+    
+    await this.context.globalState.update('mybricks.recentFiles', recentFiles)
+    
+    // 通知侧边栏更新
+    this.notifySidebarRecentFiles()
+  }
+
+  /**
+   * 通知侧边栏更新最近文件列表
+   */
+  notifySidebarRecentFiles() {
+    // 这里需要获取侧边栏的 webviewView 实例
+    // 但目前 webviewView 实例是在 src/renderer/webviewView/index.js 中管理的
+    // 我们可以通过事件触发，或者在 extension.js 中保存 webviewView 引用并传递给 manager
+    // 或者更简单：在 src/event.js 中监听 manager 的事件
+    this.emit('recentFilesUpdated', this.getRecentFiles())
   }
 
   /**

@@ -73,13 +73,16 @@ function registerSubscriptions(context) {
     }
   )
 
-  // 监听「是否开启 MCP」配置变化，通知已打开的设计器
+  // 监听配置变化，通知已打开的设计器（MCP 开关、AI Token）
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
-    if (!e.affectsConfiguration('mybricks.mcp.enabled')) return
     const messageApi = webviewManager.getMessageAPI()
-    if (messageApi?.notifyWebview) {
+    if (!messageApi?.notifyWebview) return
+    if (e.affectsConfiguration('mybricks.mcp.enabled')) {
       const enabled = vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
       messageApi.notifyWebview('mcpSettingChanged', { enabled })
+    }
+    if (e.affectsConfiguration('mybricks.ai.token')) {
+      messageApi.notifyWebview('aiTokenChanged', {})
     }
   })
 
@@ -90,7 +93,7 @@ function registerSubscriptions(context) {
     provider
   )
 
-  // 注册自定义编辑器（用于打开 .mybricks 文件）
+  // 注册自定义编辑器（用于打开 .ui / .mybricks 设计文件）
   registerCustomEditor(context)
 
   // 将所有订阅添加到 context.subscriptions

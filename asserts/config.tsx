@@ -2,7 +2,12 @@
  * MyBricks.ai 设计器配置
  * 配置小程序组件库、存储、页面加载等核心功能
  */
+import React from 'react'
 import { createAIPlugin, installAIService } from './ai/mcp'
+import ExportCode from './components/export-code'
+import TokenConfig from './components/token-config'
+
+import getAiPlugin from './plugins/get-ai-plugin'
 
 const vsCodeMessage = (window as any).webViewMessageApi
 
@@ -11,12 +16,12 @@ const vsCodeMessage = (window as any).webViewMessageApi
  * MCP 不默认加载（不阻塞读取 setting），仅安装 AI Service 供插件使用；是否启用由 useMCP 监听 setting 后设置。
  */
 async function config({ designerRef }) {
-  // 仅安装 AI Service，不预读 MCP 开关，避免 MCP 服务未开启时阻塞设计器加载
   installAIService()
 
-  // 读取低码项目内容（直接是 dump() 返回的 JSON）
   const fileResult = await vsCodeMessage.call('getFileContent')
   const fileContent = fileResult?.content !== undefined ? fileResult.content : fileResult
+
+  const aiToken = (await vsCodeMessage.call('getAIToken').catch(() => '')) ?? ''
 
   // tabbar
   ;(window as any).tabbarModel.initFromFileContent(fileContent)
@@ -25,6 +30,10 @@ async function config({ designerRef }) {
     //type: 'mpa', // 多页应用模式
     plugins: [
       // createAIPlugin(),
+      getAiPlugin({
+        key: fileResult?.path ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        token: aiToken,
+      }),
       //servicePlugin(), // HTTP 接口连接器
     ],
 
@@ -38,8 +47,9 @@ async function config({ designerRef }) {
     comLibLoader(desc) {
       return new Promise((resolve, reject) => {
         resolve([
-          'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.47/2026-02-10_16-34-25/edit.js',
-          'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.7/edit.js',
+          'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.9/2026-02-11_16-52-09/edit.js'
+          // 'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.47/2026-02-10_16-34-25/edit.js',
+          // 'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.7/edit.js',
         ])
       })
     },
@@ -63,19 +73,26 @@ async function config({ designerRef }) {
             type: 'normal',
             title: '页面',
             widthAuto: true,
+            // configs: [//自定义编辑项
+            //   {
+            //     title: '唯一标识',
+            //     type: 'text',
+            //     value: {
+            //       get({sceneId}) {
+            //         //return context._useRem;
+            //       },
+            //       set({sceneId}, v: boolean) {
+            //         //context._useRem = v;
+            //       },
+            //     },
+            //   },
+              
+            // ],
             configs: [//自定义编辑项
-              {
-                title: '唯一标识',
-                type: 'text',
-                value: {
-                  get({sceneId}) {
-                    //return context._useRem;
-                  },
-                  set({sceneId}, v: boolean) {
-                    //context._useRem = v;
-                  },
-                },
-              },
+              function(context) {
+                const sceneId = context.sceneId
+                return <ExportCode designerRef={designerRef} sceneId={sceneId} simpleMode={true} />
+              }
             ],
             inputs: [
               {
@@ -162,21 +179,12 @@ async function config({ designerRef }) {
         cate0.title = `项目`
         cate0.items = [
           {
-            items: [
-              {
-                title: '项目的配置项例子',
-                type: 'switch',
-                value: {
-                  get(context) {
-                    return context._useRem
-                  },
-                  set(context, v: boolean) {
-                    context._useRem = v
-                  },
-                },
-              },
-            ],
-          },
+            title: 'AI Token',
+            type: 'editorRender',
+            options: {
+              render: () => <TokenConfig />
+            }
+          }
         ]
       },
     },

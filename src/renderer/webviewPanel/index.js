@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const vscode = require('vscode')
 const MessageAPI = require('../../../utils/messageApi')
+const { getPreferredExtension } = require('../../fileExtension')
 
 const UNNAMED_KEY = '__unnamed__'
 
@@ -62,7 +63,7 @@ class WebviewPanel {
   }
 
   /**
-   * 根据文件路径取 webview 标题（文件名+扩展名，未命名时显示 未命名文件.mybricks）
+   * 根据文件路径取 webview 标题（文件名+扩展名，未命名时显示 未命名文件 + 优先后缀）
    * @param {string|null} filePath
    * @returns {string}
    */
@@ -70,14 +71,14 @@ class WebviewPanel {
     if (filePath) {
       return path.basename(filePath)
     }
-    return '未命名文件.mybricks'
+    return '未命名文件' + getPreferredExtension()
   }
 
   /**
    * 创建或显示指定文件对应的 webview 面板（同一文件复用同一面板，不同文件不同面板）
    * @param {vscode.ExtensionContext} context
    * @param {Function} registerHandlers - 注册事件处理器的函数
-   * @param {string|null} [filePath] - 当前打开的 .mybricks 文件路径，null 表示“未关联文件”的通用面板
+   * @param {string|null} [filePath] - 当前打开的设计文件路径（.ui / .mybricks），null 表示“未关联文件”的通用面板
    * @param {function(string|null): void} [onPanelActive] - 当某面板变为可见时回调，参数为该面板对应的 filePath
    * @returns {Promise<vscode.WebviewPanel>}
    */
@@ -140,6 +141,7 @@ class WebviewPanel {
 
       panel.onDidDispose(() => {
         this.panelsByFilePath.delete(key)
+        this.pendingByFilePath.delete(key) // 清除 pending，否则再次打开会拿到已失效的 promise
         viewStateDisposable.dispose()
       })
 

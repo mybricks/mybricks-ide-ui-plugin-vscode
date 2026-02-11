@@ -32,6 +32,7 @@ export default defineConfig({
         name: 'MyBricksApp',
         globals: {
           'react': 'React',
+          'react-dom': 'ReactDOM',
           'react-dom/client': 'ReactDOM',
           'antd': 'antd',
           '@ant-design/icons': 'icons',
@@ -67,7 +68,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'asserts'),
-      // 指向 TS 源码，避免打包到 CJS 的 .js（无 default 导出互操作）
+      '@mybricks/plugin-ai': path.resolve(__dirname, '../plugin-ai/dist/index.js'),
       '@mybricks/to-target-code': path.resolve(__dirname, '../render-web/packages/code-next/src/toTargetCode/index.ts'),
     },
     // 优先 .ts/.tsx，使 code-next 内部相对引用也走 TS 源码

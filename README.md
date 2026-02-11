@@ -1,19 +1,39 @@
-# MyBricks.ai VSCode 插件 — 开发调试
+# VibeUI — AI Vibe 一下，UI 即刻呈现
 
-## 1. 安装依赖
+> **在 VSCode 里，把你的想法变成真实 UI。**  
+> Powered by [MyBricks](http://mybricks.world/)
 
-```bash
-npm install
-```
+别再对着空白的 `<div />` 发呆了。VibeUI 是你的 **AI 界面设计师**，直接住在你的 VSCode 里。你只需要描述想法，AI 帮你生成界面；你只需要拖拽微调，代码自动就绪。
 
-## 2. toCode 包路径（用出码功能时必配）
+---
 
-出码依赖 **@mybricks/to-target-code**，在 **vite.config.ts** 里把 alias 指到你本地的 toTargetCode 入口：
+## ✨ 核心亮点
 
-```ts
-'@mybricks/to-target-code': path.resolve(__dirname, '你的路径/code-next/src/toTargetCode/index.ts'),
-```
+### 🤖 AI Vibe 出 UI
+**"帮我做一个深色风格的数据看板，要有折线图和用户列表。"**  
+告诉 AI 你想要什么，VibeUI 会立即为你生成可交互的 UI 界面。从布局到样式，AI 一步到位，灵感即刻落地。
 
-## 3. 调试
+### 🎨 像画图一样写代码
+生成的界面不完全满意？没关系。
+直接在画布上拖拽、点击、修改属性。不用手写繁琐的 CSS，不用纠结 Flex 布局，像在设计工具里一样调整，但你操作的是真实的组件。
 
-用 VSCode 打开本仓库，按 **F5** 选「运行扩展」即可。`.vscode/launch.json` 的 preLaunchTask 会自动执行构建（见 `tasks.json` 的 build all），无需再手动跑 build 或 dev。
+### 🚀 设计即代码 (Design-to-Code)
+这不是一张图片，这是**真实的代码**。
+- **设计文件**：界面保存为 `.ui` 文件，作为源码的一部分存入 Git。
+- **一键导出**：直接导出 React、Vue 或小程序代码，复制粘贴即用，或者直接引用。
+
+---
+
+## 🛠️ 快速开始
+
+1. **安装插件**：在 VSCode 插件市场搜索 `VibeUI` 安装。
+2. **新建画布**：新建一个 `.ui` 文件，或者右键选择「用 MyBricks 打开」。
+3. **唤起 AI**：在设计器内点击 AI 按钮，输入你的需求（Prompt）。
+4. **Vibe 一下**：看着 UI 在你眼前生成，然后根据需要微调。
+5. **导出使用**：点击导出，获取代码。
+
+---
+
+## ⚙️ 准备工作
+
+为了体验完整的 AI Vibe 能力，你需要配置 MyBricks 平台的 Token

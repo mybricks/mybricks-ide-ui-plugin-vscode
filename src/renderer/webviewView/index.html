@@ -46,6 +46,63 @@
         width: 16px;
         height: 16px;
       }
+      .divider {
+        height: 1px;
+        background-color: var(--vscode-panel-border);
+        margin: 8px 4px;
+        opacity: 0.5;
+      }
+      .section-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--vscode-sideBarTitle-foreground);
+        padding: 4px 8px;
+        opacity: 0.8;
+        margin-top: 4px;
+      }
+      .recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .recent-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 13px;
+        color: var(--vscode-sideBar-foreground);
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .recent-item:hover {
+        background: var(--vscode-list-hoverBackground);
+      }
+      .recent-item .icon {
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--vscode-icon-foreground);
+        opacity: 0.8;
+      }
+      .recent-item .name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .empty-tip {
+        padding: 8px;
+        color: var(--vscode-descriptionForeground);
+        font-size: 12px;
+        font-style: italic;
+        opacity: 0.7;
+      }
     </style>
   </head>
   <body>
@@ -56,7 +113,14 @@
             <path d="M8 3v10M3 8h10"/>
           </svg>
         </span>
-        <span>新建 .mybricks 文件</span>
+        <span>新建 .ui 文件</span>
+      </div>
+
+      <div class="divider"></div>
+      
+      <div class="section-title">最近打开</div>
+      <div class="recent-list" id="recent-list">
+        <div class="empty-tip">加载中...</div>
       </div>
     </div>
     <script>
@@ -70,6 +134,57 @@
       document.querySelectorAll('[data-action="openIDE"]').forEach(function (el) {
         el.addEventListener('click', openIDE)
       })
+
+      // 请求最近文件列表
+      vscode.postMessage({ command: 'getRecentFiles' })
+
+      // 监听消息
+      window.addEventListener('message', event => {
+        const message = event.data
+        switch (message.command) {
+          case 'updateRecentFiles':
+            renderRecentFiles(message.data)
+            break
+        }
+      })
+
+      function renderRecentFiles(files) {
+        const container = document.getElementById('recent-list')
+        container.innerHTML = ''
+        
+        if (!files || files.length === 0) {
+          container.innerHTML = '<div class="empty-tip">暂无最近打开的文件</div>'
+          return
+        }
+
+        files.forEach(filePath => {
+          const item = document.createElement('div')
+          item.className = 'recent-item'
+          
+          // 获取文件名
+          const separator = filePath.includes('/') ? '/' : '\\'
+          const fileName = filePath.split(separator).pop()
+          
+          item.innerHTML = `
+            <span class="icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 2.5C3 2.22386 3.22386 2 3.5 2H9.5L13.5 6V13.5C13.5 13.7761 13.2761 14 13 14H3.5C3.22386 14 3 13.7761 3 13.5V2.5Z"/>
+                <path d="M9.5 2V6H13.5"/>
+              </svg>
+            </span>
+            <span class="name" title="${filePath}">${fileName}</span>
+          `
+          
+          item.addEventListener('click', () => {
+            vscode.postMessage({ 
+              command: 'openRecentFile', 
+              filePath: filePath 
+            })
+          })
+          
+          container.appendChild(item)
+        })
+      }
     </script>
   </body>
 </html>

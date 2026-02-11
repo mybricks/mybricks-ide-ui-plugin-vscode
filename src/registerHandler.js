@@ -1,6 +1,7 @@
 const vscode = require('vscode')
 const path = require('path')
 const fs = require('fs')
+const { isMybricksFile, getPreferredExtension } = require('./fileExtension')
 const { getFileContent, saveFileContent, saveProject } = require('../utils/saveProject')
 const { exportProject } = require('../utils/exportProject')
 const {
@@ -22,21 +23,35 @@ function registerHandlers(messageApiInstance, context) {
     return vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
   })
 
+  // 读取 AI 请求凭证（Token）
+  messageApiInstance.registerHandler('getAIToken', () => {
+    const token = vscode.workspace.getConfiguration('mybricks').get('ai.token')
+    return typeof token === 'string' ? token : ''
+  })
+
+  // 打开设置页并定位到 MyBricks AI Token 配置项
+  messageApiInstance.registerHandler('openAISettings', async () => {
+    await vscode.commands.executeCommand('workbench.action.openSettings', 'mybricks.ai.token')
+  })
+
+  // 获取优先后缀（新建/另存为默认，如 .ui）
+  messageApiInstance.registerHandler('getPreferredFileExtension', () => getPreferredExtension())
+
   // 获取低码项目内容（返回 { content, path }，path 为当前项目文件路径，无则 null）
   messageApiInstance.registerHandler('getFileContent', async () => {
     const { getInstance: getWebviewManager } = require('./manager/webviewManager')
     const webviewManager = getWebviewManager()
     let currentFilePath = webviewManager.getCurrentFilePath()
-    // 若未通过 .mybricks 文件打开设计器，则尝试从当前活动编辑器或已打开的 .mybricks 文档取路径
+    // 若未通过设计文件打开设计器，则尝试从当前活动编辑器或已打开的设计文档取路径
     if (!currentFilePath) {
       const activeDoc = vscode.window.activeTextEditor?.document
-      if (activeDoc?.fileName?.endsWith('.mybricks')) {
+      if (activeDoc && isMybricksFile(activeDoc.fileName)) {
         currentFilePath = activeDoc.uri.fsPath
       } else {
-        const mybricksDoc = vscode.workspace.textDocuments.find(
-          (d) => d.uri.scheme === 'file' && d.fileName.endsWith('.mybricks')
+        const designDoc = vscode.workspace.textDocuments.find(
+          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName)
         )
-        if (mybricksDoc) currentFilePath = mybricksDoc.uri.fsPath
+        if (designDoc) currentFilePath = designDoc.uri.fsPath
       }
     }
     return getFileContent(context, currentFilePath)
@@ -71,31 +86,31 @@ function registerHandlers(messageApiInstance, context) {
     return res
   })
 
-  // 根据当前 .mybricks 文件得到导出默认值：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
+  // 根据当前设计文件得到导出默认值：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
   messageApiInstance.registerHandler('getCurrentExportDefaults', () => {
     const { getInstance: getWebviewManager } = require('./manager/webviewManager')
     const webviewManager = getWebviewManager()
     let currentFilePath = webviewManager.getCurrentFilePath()
     if (!currentFilePath) {
       const activeDoc = vscode.window.activeTextEditor?.document
-      if (activeDoc?.fileName?.endsWith('.mybricks')) {
+      if (activeDoc && isMybricksFile(activeDoc.fileName)) {
         currentFilePath = activeDoc.uri.fsPath
       } else {
-        const mybricksDoc = vscode.workspace.textDocuments.find(
-          (d) => d.uri.scheme === 'file' && d.fileName.endsWith('.mybricks')
+        const designDoc = vscode.workspace.textDocuments.find(
+          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName)
         )
-        if (mybricksDoc) currentFilePath = mybricksDoc.uri.fsPath
+        if (designDoc) currentFilePath = designDoc.uri.fsPath
       }
     }
     const root = getWorkspaceRoot()
     if (!currentFilePath) {
-      console.log('[导出] getCurrentExportDefaults: 无当前 .mybricks 文件，返回默认', { projectName: 'my_project', exportDir: '.' })
+      console.log('[导出] getCurrentExportDefaults: 无当前设计文件，返回默认', { projectName: 'my_project', exportDir: '.' })
       return { projectName: 'my_project', exportDir: '.' }
     }
     const dir = path.dirname(currentFilePath)
     let exportDir = path.relative(root, dir)
     if (!exportDir || exportDir.startsWith('..')) exportDir = '.'
-    const projectName = path.basename(currentFilePath, '.mybricks') || 'my_project'
+    const projectName = path.basename(currentFilePath, path.extname(currentFilePath)) || 'my_project'
     const res = { projectName, exportDir }
     console.log('[导出] getCurrentExportDefaults', { currentFilePath, root, res })
     return res
