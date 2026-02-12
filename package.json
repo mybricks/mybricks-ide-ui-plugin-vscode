@@ -3,7 +3,7 @@
   "displayName": "VibeUI",
   "description": "MyBricks.ai 可视化开发平台 - VSCode 集成版，支持小程序、H5 页面可视化搭建",
   "icon": "images/mybricks.png",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "publisher": "mybricks",
   "scripts": {
     "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json",
@@ -63,7 +63,7 @@
       "activitybar": [
         {
           "id": "mybricks-sidebar",
-          "title": "MyBricks",
+          "title": "VibeUI",
           "icon": "asserts/sidebar_icon.png"
         }
       ]
