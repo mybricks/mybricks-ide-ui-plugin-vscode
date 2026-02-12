@@ -47,7 +47,7 @@ async function config({ designerRef }) {
     comLibLoader(desc) {
       return new Promise((resolve, reject) => {
         resolve([
-          'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.9/2026-02-11_16-52-09/edit.js'
+          'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.10/2026-02-12_19-54-37/edit.js'
           // 'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.47/2026-02-10_16-34-25/edit.js',
           // 'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.7/edit.js',
         ])
