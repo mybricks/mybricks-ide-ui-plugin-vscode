@@ -17,7 +17,6 @@ export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
   const requestMybricks = createMyBricksAIRequest({ getToken })
   return AIPlugin({
     isMutiCanvas: false,
-    guidePrompt: `建议用大块的AI区域组件来完成，容器只需要做布局和AI区域间的间距使用，不允许拆分过细的AI区域组件。`,
     prompts: {
       systemAppendPrompts: systemAppendPromptsForAi(),
       prdExamplesPrompts: prdExamplesPrompts(),
@@ -45,6 +44,7 @@ export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
       return requestMybricks(params)
     },
     onDownload,
+    codingMode: true
   })
 }
 
