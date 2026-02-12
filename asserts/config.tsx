@@ -21,8 +21,6 @@ async function config({ designerRef }) {
   const fileResult = await vsCodeMessage.call('getFileContent')
   const fileContent = fileResult?.content !== undefined ? fileResult.content : fileResult
 
-  const aiToken = (await vsCodeMessage.call('getAIToken').catch(() => '')) ?? ''
-
   // tabbar
   ;(window as any).tabbarModel.initFromFileContent(fileContent)
 
@@ -32,7 +30,9 @@ async function config({ designerRef }) {
       // createAIPlugin(),
       getAiPlugin({
         key: fileResult?.path ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-        token: aiToken,
+        getToken: () => vsCodeMessage.call('getAIToken').then((t: string) => t ?? '').catch(() => ''),
+        onDownload: (params) =>
+          vsCodeMessage.call('downloadFile', { name: params.name, content: params.content }),
       }),
       //servicePlugin(), // HTTP 接口连接器
     ],
@@ -129,6 +129,15 @@ async function config({ designerRef }) {
           },
         ],
       },
+      nav: {
+        float: true,
+        comShortcuts: [
+          {
+            title: 'AI组件',
+            namespace: 'mybricks.basic-comlib.ai-mix'
+          }
+        ],
+      },
       theme: {
         css: [
           'https://my.mybricks.world/mybricks-app-mpsite/public/brickd-mobile/0.0.53/index.css',
@@ -179,7 +188,7 @@ async function config({ designerRef }) {
         cate0.title = `项目`
         cate0.items = [
           {
-            title: 'AI Token',
+            title: 'AI请求凭证',
             type: 'editorRender',
             options: {
               render: () => <TokenConfig />

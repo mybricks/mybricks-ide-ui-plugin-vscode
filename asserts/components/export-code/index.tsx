@@ -170,7 +170,7 @@ export default function ExportCode({ designerRef, sceneId, onClose, style, simpl
         </Form.Item>
 
         <div style={{ marginBottom: 12 }}>
-           <Flex gap="small" style={{ marginBottom: 12 }}>
+           {/* <Flex gap="small" style={{ marginBottom: 12 }}>
              <Form.Item name="exportType" noStyle>
                 <Select 
                   style={{ flex: 1 }} 
@@ -190,8 +190,7 @@ export default function ExportCode({ designerRef, sceneId, onClose, style, simpl
                   ]}
                 />
              </Form.Item>
-           </Flex>
-           
+           </Flex> */}
            <Form.Item 
              name="projectName" 
              rules={[{ required: true, message: '请输入项目名' }]}

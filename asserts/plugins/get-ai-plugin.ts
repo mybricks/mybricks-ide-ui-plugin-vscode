@@ -1,7 +1,20 @@
 import AIPlugin, { fileFormat, createMyBricksAIRequest } from '@mybricks/plugin-ai'
 
-export default ({ key, token = '' }: { key: string; token?: string }) => {
-  const requestMybricks = createMyBricksAIRequest({ token: token || '' })
+export type OnDownloadParams = {
+  name: string
+  content: string
+  // 后续可扩展更多字段，如 mimeType、encoding 等
+}
+
+export type GetAiPluginOptions = {
+  key: string
+  getToken: () => Promise<string>
+  /** VSCode 下由 extension 弹窗选择保存路径并写入文件；支持异步 */
+  onDownload?: (params: OnDownloadParams) => void | Promise<void>
+}
+
+export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
+  const requestMybricks = createMyBricksAIRequest({ getToken })
   return AIPlugin({
     isMutiCanvas: false,
     guidePrompt: `建议用大块的AI区域组件来完成，容器只需要做布局和AI区域间的间距使用，不允许拆分过细的AI区域组件。`,
@@ -30,7 +43,8 @@ export default ({ key, token = '' }: { key: string; token?: string }) => {
     },
     onRequest: (params) => {
       return requestMybricks(params)
-    }
+    },
+    onDownload,
   })
 }
 

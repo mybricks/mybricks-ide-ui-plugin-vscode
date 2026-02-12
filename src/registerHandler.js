@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const { isMybricksFile, getPreferredExtension } = require('./fileExtension')
 const { getFileContent, saveFileContent, saveProject } = require('../utils/saveProject')
+const { getWorkspaceFolder } = require('../utils/utils')
 const { exportProject } = require('../utils/exportProject')
 const {
   readWorkspaceFile,
@@ -62,6 +63,26 @@ function registerHandlers(messageApiInstance, context) {
     saveFileContent(context, data)
   })
 
+  // AI 插件下载文件：弹窗选择保存路径，将 content 按字符串写入
+  messageApiInstance.registerHandler('downloadFile', async (data) => {
+    const name = (data && data.name != null) ? String(data.name).trim() : 'download'
+    const content = (data && data.content !== undefined) ? String(data.content) : ''
+    const workspaceUri = getWorkspaceFolder(context)
+    const defaultUri = path.join(workspaceUri.fsPath, name)
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(defaultUri),
+      filters: { 'All Files': ['*'] },
+      title: '保存文件',
+    })
+    if (!uri) return { success: false, message: '用户取消保存' }
+    const savePath = uri.fsPath
+    const dir = path.dirname(savePath)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(savePath, content, 'utf-8')
+    vscode.window.showInformationMessage(`已保存: ${path.basename(savePath)}`)
+    return { success: true, path: savePath }
+  })
+
   // 保存项目：有 currentFilePath 则直接保存，否则弹窗选择路径和文件名（另存为）
   messageApiInstance.registerHandler('saveProject', async (data) => {
     const { getInstance: getWebviewManager } = require('./manager/webviewManager')
@@ -69,9 +90,10 @@ function registerHandlers(messageApiInstance, context) {
     const saveContent = data?.saveContent != null ? data.saveContent : data
     let currentFilePath = data?.currentFilePath ?? webviewManager.getCurrentFilePath()
     const res = await saveProject(context, saveContent, currentFilePath)
-    // 新建文件另存为成功后：更新当前文件路径与面板标题
+    // 新建文件另存为成功后：更新当前文件路径、面板标题，并加入最近打开列表
     if (res.success && res.path && (!currentFilePath || !fs.existsSync(currentFilePath))) {
       webviewManager.setCurrentFilePath(res.path)
+      await webviewManager.addRecentFile(res.path)
       if (messageApiInstance.panel) {
         messageApiInstance.panel.title = path.basename(res.path)
       }
