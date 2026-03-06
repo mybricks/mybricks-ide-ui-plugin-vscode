@@ -71,6 +71,28 @@ declare global {
   const ReactDOM: typeof import('react-dom/client')
   const MyBricksAPI: any
   
+  /** code-export 适配：与 comlib-pc-normal-lite code-export 的 ExportProgress 一致 */
+  interface CodeExportProgress {
+    progress: number
+    currentFile?: string
+    totalFiles: number
+    completedFiles: number
+  }
+
+  /** code-export 适配：FileItem 与 structure-generator 一致 */
+  interface CodeExportFileItem {
+    fileName: string
+    content: string
+    type?: 'file' | 'directory'
+  }
+
+  interface CodeExportToVSCodeOptions {
+    folderName?: string
+    onProgress?: (progress: CodeExportProgress) => void
+    onSuccess?: (result?: unknown) => void
+    onError?: (error: Error) => void
+  }
+
   interface Window {
     antd: typeof import('antd')
     icons: any
@@ -81,6 +103,8 @@ declare global {
     /** 由 asserts/ai/mcp 在 setting mybricks.mcp.enabled 为 true 时挂载 */
     __mybricksAIService: any
     MyBricksAPI: any
+    /** code-export VS Code 适配：导出到工作区，API 与 exportToBrowser 对齐；仅扩展 Webview 内存在 */
+    exportCodeToVSCode: (files: CodeExportFileItem[], options?: CodeExportToVSCodeOptions) => Promise<void>
   }
 }
 

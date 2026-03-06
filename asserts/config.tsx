@@ -25,6 +25,7 @@ async function config({ designerRef }) {
   ;(window as any).tabbarModel.initFromFileContent(fileContent)
 
   return {
+    desnMode: 'vibeCoding',
     //type: 'mpa', // 多页应用模式
     plugins: [
       // createAIPlugin(),
@@ -47,7 +48,9 @@ async function config({ designerRef }) {
     comLibLoader(desc) {
       return new Promise((resolve, reject) => {
         resolve([
-          'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.10/2026-02-12_19-54-37/edit.js'
+          // 'http://localhost:20000/comlib.js'
+          'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.16/2026-03-06_18-58-05/edit.js'
+          // 'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.10/2026-02-12_19-54-37/edit.js'
           // 'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.47/2026-02-10_16-34-25/edit.js',
           // 'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.7/edit.js',
         ])
@@ -69,60 +72,86 @@ async function config({ designerRef }) {
       toolbarContainer: '#toolbarBtns', // 工具栏容器
       scenes: {
         adder: [
+          // {
+          //   type: 'normal',
+          //   title: '页面',
+          //   widthAuto: true,
+          //   // configs: [//自定义编辑项
+          //   //   {
+          //   //     title: '唯一标识',
+          //   //     type: 'text',
+          //   //     value: {
+          //   //       get({sceneId}) {
+          //   //         //return context._useRem;
+          //   //       },
+          //   //       set({sceneId}, v: boolean) {
+          //   //         //context._useRem = v;
+          //   //       },
+          //   //     },
+          //   //   },
+              
+          //   // ],
+          //   configs: [//自定义编辑项
+          //     function(context) {
+          //       const sceneId = context.sceneId
+          //       return <ExportCode designerRef={designerRef} sceneId={sceneId} simpleMode={true} />
+          //     }
+          //   ],
+          //   inputs: [
+          //     {
+          //       id: 'test',
+          //       title: '自定义',
+          //       schema: {
+          //         type: 'string'
+          //       }
+          //     }
+          //   ],
+          //   events: [
+          //     {
+          //       id: 'onLoad',
+          //       title: '页面加载',
+          //       schema: {
+          //         type: 'any'
+          //       }
+          //     },
+          //     {
+          //       id: "onShow",
+          //       title: "页面显示",
+          //       schema: {
+          //         type: "any",
+          //       },
+          //     },
+          //     {
+          //       id: "onHide",
+          //       title: "页面隐藏",
+          //       schema: {
+          //         type: "any",
+          //       },
+          //     },
+          //   ]
+          // },
           {
             type: 'normal',
-            title: '页面',
-            widthAuto: true,
-            // configs: [//自定义编辑项
-            //   {
-            //     title: '唯一标识',
-            //     type: 'text',
-            //     value: {
-            //       get({sceneId}) {
-            //         //return context._useRem;
-            //       },
-            //       set({sceneId}, v: boolean) {
-            //         //context._useRem = v;
-            //       },
-            //     },
-            //   },
-              
-            // ],
+            title: 'AI页面',
+            template: {
+              namespace: 'mybricks.basic-comlib.ai-mix',
+              deletable: false,
+              asRoot: true,
+            },
+            // width: 300,
+            // height: 200,
+            // widthAuto: true,
             configs: [//自定义编辑项
-              function(context) {
-                const sceneId = context.sceneId
-                return <ExportCode designerRef={designerRef} sceneId={sceneId} simpleMode={true} />
-              }
-            ],
-            inputs: [
               {
-                id: 'test',
-                title: '自定义',
-                schema: {
-                  type: 'string'
-                }
-              }
-            ],
-            events: [
-              {
-                id: 'onLoad',
-                title: '页面加载',
-                schema: {
-                  type: 'any'
-                }
-              },
-              {
-                id: "onShow",
-                title: "页面显示",
-                schema: {
-                  type: "any",
-                },
-              },
-              {
-                id: "onHide",
-                title: "页面隐藏",
-                schema: {
-                  type: "any",
+                title: '唯一标识',
+                type: 'text',
+                value: {
+                  get({sceneId}) {
+                    //return context._useRem;
+                  },
+                  set({sceneId}, v: boolean) {
+                    //context._useRem = v;
+                  },
                 },
               },
             ]

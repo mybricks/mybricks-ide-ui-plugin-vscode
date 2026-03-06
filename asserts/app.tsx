@@ -19,6 +19,8 @@ import { VerticalAlignBottomOutlined, CloseOutlined } from '@ant-design/icons'
 import ExportCode from './components/export-code'
 import { config as getDesignerConfig } from './config'
 import { useMCP } from './ai/mcp'
+// 注入 window.exportCodeToVSCode，供 comlib 等使用；React 内可直接 import { exportCodeToVSCode }
+import './code-export-vscode-adapter'
 
 // MyBricks SPA Designer 引擎
 const { SPADesigner } = (window as any).mybricks
