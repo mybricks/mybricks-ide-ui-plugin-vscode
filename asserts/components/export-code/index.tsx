@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Form, Input, Button, Radio, Space, message, Select, Flex } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
-import toCode from '@mybricks/to-target-code'
+import toCode from './downloadAiCode'
 
 const vsCodeMessage = (window as any).webViewMessageApi
 const STORAGE_KEY_EXPORT = '--mybricks-export-config-'
@@ -109,7 +109,14 @@ export default function ExportCode({ designerRef, sceneId, onClose, style, simpl
         return
       }
 
-      const result = toCode(configJson, { target: values.techStack || 'react', sceneId })
+      const result = toCode({
+        ...configJson,
+        scenes: configJson.scenes.filter((scene) => {
+          return scene.id === sceneId
+        })
+      })
+
+      // const result = toCode(configJson, { target: values.techStack || 'react', sceneId })
       
       if (!result || !Array.isArray(result) || result.length === 0) {
         message.error('代码生成失败，返回结果格式不正确')

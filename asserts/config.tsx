@@ -49,7 +49,7 @@ async function config({ designerRef }) {
       return new Promise((resolve, reject) => {
         resolve([
           // 'http://localhost:20000/comlib.js'
-          'https://p2-ec.eckwai.com/kos/nlav12333/mybricks/comlib-lite/edit.46054e227cbfd270.js',
+          'https://p2-ec.eckwai.com/kos/nlav12333/mybricks/comlib-lite/edit.d6ba2c407b4dbb9a.js',
           // 'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.16/2026-03-06_18-58-05/edit.js'
           // 'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.10/2026-02-12_19-54-37/edit.js'
           // 'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.47/2026-02-10_16-34-25/edit.js',
