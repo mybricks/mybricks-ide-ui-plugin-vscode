@@ -69,7 +69,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'asserts'),
       '@mybricks/plugin-ai': path.resolve(__dirname, '../plugin-ai/dist/index.js'),
-      '@mybricks/to-target-code': path.resolve(__dirname, '../render-web/packages/code-next/src/toTargetCode/index.ts'),
     },
     // 优先 .ts/.tsx，使 code-next 内部相对引用也走 TS 源码
     extensions: ['.ts', '.tsx', '.mjs', '.js', '.mts', '.cjs', '.jsx', '.json'],
