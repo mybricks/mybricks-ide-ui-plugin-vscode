@@ -72,9 +72,9 @@ export default function App() {
 
   const refreshAIToken = useCallback(() => {
     if (!vsCodeMessage?.call) return
-    vsCodeMessage.call('getAIToken').then((token: string) => {
-      setHasAIToken(typeof token === 'string' && token.trim() !== '')
-    }).catch(() => setHasAIToken(false))
+    // vsCodeMessage.call('getAIToken').then((token: string) => {
+    //   setHasAIToken(typeof token === 'string' && token.trim() !== '')
+    // }).catch(() => setHasAIToken(false))
   }, [])
 
   useEffect(() => {
