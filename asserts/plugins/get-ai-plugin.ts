@@ -1,4 +1,4 @@
-import AIPlugin, { fileFormat, createMyBricksAIRequest } from '@mybricks/plugin-ai'
+import AIPlugin, { fileFormat, createMyBricksAIRequest, createInfraAIRequest } from '@mybricks/plugin-ai'
 
 export type OnDownloadParams = {
   name: string
@@ -15,6 +15,7 @@ export type GetAiPluginOptions = {
 
 export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
   const requestMybricks = createMyBricksAIRequest({ getToken })
+  const requestInfra = createInfraAIRequest()
   return AIPlugin({
     isMutiCanvas: false,
     prompts: {
@@ -41,7 +42,7 @@ export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
       }
     },
     onRequest: (params) => {
-      return requestMybricks(params)
+      return requestInfra(params)
     },
     onDownload,
     codingMode: true
