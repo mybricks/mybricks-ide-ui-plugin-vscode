@@ -54,11 +54,24 @@ body {
 
 .toolbar .logo {
   font-weight: bold;
-  margin-right: auto;
   font-size: 14px;
   margin-left: 10px;
   font-style: italic;
   color: #999;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  /* margin-right: auto; */
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 14px;
+  background: #e5e7eb;
+  margin: 0 10px;
 }
 
 .toolbar .btns {

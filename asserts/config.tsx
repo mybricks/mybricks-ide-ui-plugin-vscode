@@ -6,6 +6,7 @@ import React from 'react'
 import { createAIPlugin, installAIService } from './ai/mcp'
 import ExportCode from './components/export-code'
 import TokenConfig from './components/token-config'
+import { loadManifest } from './manifestLoader'
 
 import getAiPlugin from './plugins/get-ai-plugin'
 
@@ -44,17 +45,18 @@ async function config({ designerRef }) {
     // 组件库添加器（预留）
     comLibAdder() {},
 
-    // 组件库加载器
+    // 组件库加载器：从 manifest 动态获取 aiComLib.url
     comLibLoader(desc) {
-      return new Promise((resolve, reject) => {
-        resolve([
-          // 'http://localhost:20000/comlib.js'
-          'https://p2-ec.eckwai.com/kos/nlav12333/mybricks/comlib-lite/edit.d6ba2c407b4dbb9a.js',
-          // 'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.16/2026-03-06_18-58-05/edit.js'
-          // 'https://assets.mybricks.world/comlibs/mybricks.normal-pc-lite/1.0.10/2026-02-12_19-54-37/edit.js'
-          // 'https://assets.mybricks.world/comlibs/mybricks.ai-comlib-pc/1.0.47/2026-02-10_16-34-25/edit.js',
-          // 'https://p66-ec.becukwai.com/udata/pkg/eshop/fangzhou/mybricks.pc-normal-lite/1.0.7/edit.js',
-        ])
+      return loadManifest().then((manifest) => {
+        const aiComLibUrl = manifest?.aiComLib?.url
+        if (!aiComLibUrl) {
+          console.warn('[comLibLoader] manifest.aiComLib.url 为空，跳过组件库加载')
+          return []
+        }
+        return [aiComLibUrl]
+      }).catch((err) => {
+        console.error('[comLibLoader] 获取 manifest 失败:', err)
+        return []
       })
     },
 
@@ -70,7 +72,7 @@ async function config({ designerRef }) {
 
     // 画布配置
     geoView: {
-      toolbarContainer: '#toolbarBtns', // 工具栏容器
+      // toolbarContainer: '#toolbarBtns', // 工具栏容器
       scenes: {
         adder: [
           // {
