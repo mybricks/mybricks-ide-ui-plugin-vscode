@@ -100,6 +100,7 @@ declare global {
     config: any
     VS_CODE: any
     webViewMessageApi: any
+    MyBricksPluginAI?: any
     /** 由 asserts/ai/mcp 在 setting mybricks.mcp.enabled 为 true 时挂载 */
     __mybricksAIService: any
     MyBricksAPI: any

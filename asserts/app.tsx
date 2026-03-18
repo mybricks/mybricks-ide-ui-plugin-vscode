@@ -78,6 +78,8 @@ export default function App() {
   const [appVersion, setAppVersion] = useState<string | null>(null)
   // 设计器版本（manifest.designer.version）
   const [designerVersion, setDesignerVersion] = useState<string | null>(null)
+  // AI 插件版本（manifest.pluginAI.version）
+  const [pluginAIVersion, setPluginAIVersion] = useState<string | null>(null)
   const config = useRef<any>(null)
 
   // 当前打开的文件名
@@ -94,6 +96,9 @@ export default function App() {
   const [hasAIToken, setHasAIToken] = useState(true)
   const [aiTokenBannerClosed, setAITokenBannerClosed] = useState(false)
 
+  // AI 服务渠道：'infra' = 默认 Infra 通道；'mybricks' = MyBricks 通道（需要用户 token）
+  const [aiChannel, setAIChannel] = useState<'infra' | 'mybricks' | null>(null)
+
   // 0. 启动时立即获取当前文件名（不等 SPADesigner 加载）
   useEffect(() => {
     if (!vsCodeMessage?.call) return
@@ -105,7 +110,7 @@ export default function App() {
     }).catch(() => {})
   }, [])
 
-  // 1. 启动时 fetch manifest → 动态加载 designer-spa
+  // 1. 启动时 fetch manifest → 动态加载 designer-spa 和 plugin-ai
   useEffect(() => {
     loadManifest()
       .then((manifest) => {
@@ -119,7 +124,13 @@ export default function App() {
         if (dVer) {
           setDesignerVersion(dVer)
         }
-        
+
+        // AI 插件版本
+        const pAIVer = manifest?.pluginAI?.version
+        if (pAIVer) {
+          setPluginAIVersion(pAIVer)
+        }
+
         let designerUrl = manifest?.designer?.url
         if (!designerUrl && dVer) {
           designerUrl = `https://f2.eckwai.com/kos/nlav12333/mybricks/designer-spa/${dVer}/index.min.js`
@@ -128,36 +139,71 @@ export default function App() {
         if (!designerUrl) {
           throw new Error('[manifest] designer.url 和 version 均为空')
         }
-        return loadScript(designerUrl)
+
+        // plugin-ai URL: 优先 manifest.pluginAI.url，兜底用 version 拼接
+        const pAI = manifest?.pluginAI
+        let pluginAIUrl = pAI?.url
+        const pVer = pAI?.version
+        if (!pluginAIUrl && pVer) {
+          pluginAIUrl = `https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/plugin-ai/${pVer}/index.umd.js`
+        }
+
+        const scripts: Promise<void>[] = [loadScript(designerUrl)]
+        if (pluginAIUrl) {
+          scripts.push(loadScript(pluginAIUrl))
+        } else {
+          console.warn('[manifest] pluginAI.url 和 version 均为空，跳过 plugin-ai 加载')
+        }
+
+        return Promise.all(scripts)
       })
-      .then(() => {
+      .then(async () => {
         const designer = (window as any).mybricks?.SPADesigner
         if (!designer) {
           throw new Error('[manifest] 加载后 window.mybricks.SPADesigner 不存在')
         }
+
+        // 检测 Infra 服务是否可用，决定 AI 请求渠道
+        const { checkInfraAvailable } = (window as any).MyBricksPluginAI || {}
+        let infraAvailable = false
+        if (typeof checkInfraAvailable === 'function') {
+          infraAvailable = await checkInfraAvailable().catch(() => false)
+        }
+        setAIChannel(infraAvailable ? 'infra' : 'mybricks')
+
+        if (!infraAvailable) {
+          // eslint-disable-next-line no-console
+          console.log('[MyBricks] Infra 不可用，切换至 MyBricks AI 渠道')
+          // Infra 不可用，检查用户是否配置了 MyBricks token
+          const token = await vsCodeMessage?.call?.('getAIToken').catch(() => '') ?? ''
+          setHasAIToken(typeof token === 'string' && token.trim() !== '')
+        }
+
         setSPADesigner(() => designer)
       })
       .catch((err) => {
-        console.error('[MyBricks] designer-spa 动态加载失败:', err)
+        console.error('[MyBricks] 动态加载失败:', err)
         message.error('设计器加载失败，请检查网络后刷新重试')
       })
   }, [])
 
   // 2. SPADesigner 就绪后，初始化设计器 config
   useEffect(() => {
-    if (!SPADesigner) return
-    getDesignerConfig({ designerRef }).then((_config) => {
+    if (!SPADesigner || !aiChannel) return
+    getDesignerConfig({ designerRef, aiChannel }).then((_config) => {
       setInitSuccess(true)
       config.current = _config
     })
-  }, [SPADesigner])
+  }, [SPADesigner, aiChannel])
 
   const refreshAIToken = useCallback(() => {
+    // 只有 MyBricks 渠道才需要检查 token
+    if (aiChannel !== 'mybricks') return
     if (!vsCodeMessage?.call) return
-    // vsCodeMessage.call('getAIToken').then((token: string) => {
-    //   setHasAIToken(typeof token === 'string' && token.trim() !== '')
-    // }).catch(() => setHasAIToken(false))
-  }, [])
+    vsCodeMessage.call('getAIToken').then((token: string) => {
+      setHasAIToken(typeof token === 'string' && token.trim() !== '')
+    }).catch(() => setHasAIToken(false))
+  }, [aiChannel])
 
   useEffect(() => {
     if (!initSuccess) return
@@ -296,9 +342,23 @@ export default function App() {
                   </div>
                 )}
                 {designerVersion && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: pluginAIVersion ? 5 : 0 }}>
                     <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>设计器</span>
                     <span style={{ color: '#374151', fontSize: 12 }}>v{designerVersion}</span>
+                  </div>
+                )}
+                {pluginAIVersion && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: aiChannel ? 5 : 0 }}>
+                    <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 插件</span>
+                    <span style={{ color: '#374151', fontSize: 12 }}>v{pluginAIVersion}</span>
+                  </div>
+                )}
+                {aiChannel && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 渠道</span>
+                    <span style={{ color: aiChannel === 'infra' ? '#374151' : 'var(--mybricks-color-primary)', fontSize: 12, fontWeight: aiChannel === 'mybricks' ? 600 : 400 }}>
+                      {aiChannel === 'infra' ? '默认' : 'MyBricks'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -329,7 +389,7 @@ export default function App() {
           </Tooltip>
         </Popover> */}
     </div>
-  ), [changed, save, appVersion, designerVersion])
+  ), [changed, save, appVersion, designerVersion, pluginAIVersion, aiChannel])
 
   return (
     <ConfigProvider {...ANTD_CONFIG}>

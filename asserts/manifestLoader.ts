@@ -26,6 +26,7 @@ export interface ManifestEntry {
 export interface Manifest {
   designer: ManifestEntry
   aiComLib: ManifestEntry
+  pluginAI?: ManifestEntry
   version?: string
 }
 

@@ -1,5 +1,3 @@
-import AIPlugin, { fileFormat, createMyBricksAIRequest, createInfraAIRequest } from '@mybricks/plugin-ai'
-
 export type OnDownloadParams = {
   name: string
   content: string
@@ -8,20 +6,30 @@ export type OnDownloadParams = {
 
 export type GetAiPluginOptions = {
   key: string
+  /** true → 走 Infra 通道（默认）；false → 走 MyBricks 通道（需要用户配置 token） */
+  useInfra?: boolean
   getToken: () => Promise<string>
   /** VSCode 下由 extension 弹窗选择保存路径并写入文件；支持异步 */
   onDownload?: (params: OnDownloadParams) => void | Promise<void>
 }
 
-export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
+export default ({ key, useInfra = true, getToken, onDownload }: GetAiPluginOptions) => {
+  const PluginAI = (window as any).MyBricksPluginAI || {}
+  const { default: AIPlugin, createMyBricksAIRequest, createInfraAIRequest, fileFormat } = PluginAI
+
+  if (!AIPlugin) {
+    console.warn('[MyBricks] window.MyBricksPluginAI is not loaded. Ensure plugin-ai is loaded via manifest.')
+    return null
+  }
+
   const requestMybricks = createMyBricksAIRequest({ getToken })
   const requestInfra = createInfraAIRequest()
   return AIPlugin({
     isMutiCanvas: false,
     prompts: {
       systemAppendPrompts: systemAppendPromptsForAi(),
-      prdExamplesPrompts: prdExamplesPrompts(),
-      generatePageActionExamplesPrompts: generatePageActionExamplesPromptsForAi(),
+      prdExamplesPrompts: prdExamplesPrompts(fileFormat),
+      generatePageActionExamplesPrompts: generatePageActionExamplesPromptsForAi(fileFormat),
     },
     key,
     createTemplates: {
@@ -42,7 +50,7 @@ export default ({ key, getToken, onDownload }: GetAiPluginOptions) => {
       }
     },
     onRequest: (params) => {
-      return requestInfra(params)
+      return useInfra ? requestInfra(params) : requestMybricks(params)
     },
     onDownload,
     codingMode: true
@@ -70,7 +78,7 @@ function systemAppendPromptsForAi() {
 `
 }
 
-function prdExamplesPrompts() {
+function prdExamplesPrompts(fileFormat: any) {
 
   return `
 <example>
@@ -445,7 +453,7 @@ ${fileFormat({
 }
 
 
-function generatePageActionExamplesPromptsForAi() {
+function generatePageActionExamplesPromptsForAi(fileFormat: any) {
   return `
 <example>
   <user_query>搭建一个知乎个人中心页面</user_query>

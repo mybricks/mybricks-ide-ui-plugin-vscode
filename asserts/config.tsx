@@ -16,7 +16,7 @@ const vsCodeMessage = (window as any).webViewMessageApi
  * 生成设计器配置
  * MCP 不默认加载（不阻塞读取 setting），仅安装 AI Service 供插件使用；是否启用由 useMCP 监听 setting 后设置。
  */
-async function config({ designerRef }) {
+async function config({ designerRef, aiChannel }: { designerRef: React.MutableRefObject<any>, aiChannel: 'infra' | 'mybricks' }) {
   installAIService()
 
   const fileResult = await vsCodeMessage.call('getFileContent')
@@ -32,6 +32,7 @@ async function config({ designerRef }) {
       // createAIPlugin(),
       getAiPlugin({
         key: fileResult?.path ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        useInfra: aiChannel === 'infra',
         getToken: () => vsCodeMessage.call('getAIToken').then((t: string) => t ?? '').catch(() => ''),
         onDownload: (params) =>
           vsCodeMessage.call('downloadFile', { name: params.name, content: params.content }),
@@ -53,6 +54,7 @@ async function config({ designerRef }) {
           console.warn('[comLibLoader] manifest.aiComLib.url 为空，跳过组件库加载')
           return []
         }
+        console.log('>>> aiComLibUrl:', aiComLibUrl)
         return [aiComLibUrl]
       }).catch((err) => {
         console.error('[comLibLoader] 获取 manifest 失败:', err)
@@ -218,15 +220,17 @@ async function config({ designerRef }) {
     editView: {
       items({}, cate0, cate1, cate2) {
         cate0.title = `项目`
-        // cate0.items = [
-        //   {
-        //     title: 'AI请求凭证',
-        //     type: 'editorRender',
-        //     options: {
-        //       render: () => <TokenConfig />
-        //     }
-        //   }
-        // ]
+        if (aiChannel === 'mybricks') {
+          cate0.items = [
+            {
+              title: 'AI请求凭证',
+              type: 'editorRender',
+              options: {
+                render: () => <TokenConfig />
+              }
+            }
+          ]
+        }
       },
     },
   }
