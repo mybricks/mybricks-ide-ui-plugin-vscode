@@ -83,9 +83,11 @@ export default function App() {
   // 当前打开的文件名
   const [currentFileName, setCurrentFileName] = useState<string>('')
 
-  // 从文件路径中提取文件名
+  // 从文件路径中提取文件名（不含后缀）
   const extractFileName = useCallback((filePath: string) => {
-    return filePath.split(/[/\\]/).pop() ?? filePath
+    const name = filePath.split(/[/\\]/).pop() ?? filePath
+    const dotIndex = name.lastIndexOf('.')
+    return dotIndex > 0 ? name.slice(0, dotIndex) : name
   }, [])
 
   // 是否已配置 AI Token（用于展示横幅），监听 aiTokenChanged 更新
@@ -234,7 +236,7 @@ export default function App() {
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
     }}>
-      {currentFileName || 'VibeUI'}
+      {currentFileName || '未命名文件'}
     </div>
   ), [currentFileName])
 
