@@ -1,9 +1,6 @@
-# VibeUI — AI Vibe 一下，UI 即刻呈现
+# VibeUI — Vibe 一下，UI 即刻呈现
 
-> **在 VSCode 里，把你的想法变成真实 UI。**  
-> Powered by [MyBricks](http://mybricks.world/)
-
-别再对着空白的 `<div />` 发呆了。VibeUI 是你的 **AI 界面设计师**，直接住在你的 VSCode 里。你只需要描述想法，AI 帮你生成界面；你只需要拖拽微调，代码自动就绪。
+VibeUI 是你的 **AI 超级界面设计师**，直接住在你的 IDE 里。你只需要描述想法，AI 帮你生成界面；你只需要拖拽微调，代码自动就绪。
 
 ---
 
