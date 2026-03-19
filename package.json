@@ -73,7 +73,7 @@
         {
           "type": "webview",
           "id": "mybricks.ide",
-          "name": "MyBricks IDE"
+          "name": "FILES"
         }
       ]
     },
