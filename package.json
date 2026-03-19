@@ -1,7 +1,7 @@
 {
   "name": "mybricks-webview",
   "displayName": "VibeUI",
-  "description": "MyBricks.ai 可视化开发平台 - VSCode 集成版，支持小程序、H5 页面可视化搭建",
+  "description": "Vibe prototype、Vibe design、Vibe Coding",
   "icon": "images/mybricks.png",
   "version": "0.0.18",
   "publisher": "mybricks",
