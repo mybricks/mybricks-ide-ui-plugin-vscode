@@ -85,6 +85,7 @@ class WebviewPanel {
   createOrShow(context, registerHandlers, filePath, onPanelActive) {
     const key = this._normalizeKey(filePath)
     const extensionUri = context.extensionUri
+    this.extensionUri = extensionUri
     const title = this._getPanelTitle(filePath)
 
     const existing = this.panelsByFilePath.get(key)
@@ -181,6 +182,19 @@ class WebviewPanel {
     }
     const first = this.panelsByFilePath.values().next().value
     return first?.panel
+  }
+
+  /**
+   * 重新加载指定文件路径对应的 WebView 面板（重新赋值 html，触发完整刷新）
+   * @param {string|null} [filePath]
+   * @returns {boolean} 是否找到并刷新了面板
+   */
+  reloadPanel(filePath) {
+    const key = this._normalizeKey(filePath)
+    const entry = this.panelsByFilePath.get(key)
+    if (!entry || !this.extensionUri) return false
+    entry.panel.webview.html = this.getWebviewContent(entry.panel.webview, this.extensionUri)
+    return true
   }
 
   /**

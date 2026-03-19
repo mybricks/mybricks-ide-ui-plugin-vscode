@@ -69,6 +69,9 @@ export default function App() {
   // MyBricksAPI 实例缓存
   const myBricksAPIRef = useRef(null)
 
+  // save 函数的 ref（供防抖回调使用，避免闭包捕获旧值）
+  const saveRef = useRef<(() => void) | null>(null)
+
   // 动态加载的 SPADesigner 组件（manifest 加载完才有值）
   const [SPADesigner, setSPADesigner] = useState<any>(null)
 
@@ -98,6 +101,8 @@ export default function App() {
 
   // AI 服务渠道：'infra' = 默认 Infra 通道；'mybricks' = MyBricks 通道（需要用户 token）
   const [aiChannel, setAIChannel] = useState<'infra' | 'mybricks' | null>(null)
+  // Infra 是否可用（用于判断是否允许手动切换渠道）
+  const [infraAvailable, setInfraAvailable] = useState(false)
 
   // 0. 启动时立即获取当前文件名（不等 SPADesigner 加载）
   useEffect(() => {
@@ -165,15 +170,20 @@ export default function App() {
 
         // 检测 Infra 服务是否可用，决定 AI 请求渠道
         const { checkInfraAvailable } = (window as any).MyBricksPluginAI || {}
-        let infraAvailable = false
+        let infraOk = false
         if (typeof checkInfraAvailable === 'function') {
-          infraAvailable = await checkInfraAvailable().catch(() => false)
+          infraOk = await checkInfraAvailable().catch(() => false)
         }
-        setAIChannel(infraAvailable ? 'infra' : 'mybricks')
+        setInfraAvailable(infraOk)
 
-        if (!infraAvailable) {
-          // eslint-disable-next-line no-console
-          console.log('[MyBricks] Infra 不可用，切换至 MyBricks AI 渠道')
+        // 读取用户手动选择的渠道覆盖（存储在 globalState）
+        const channelOverride = await vsCodeMessage?.call?.('getAIChannelOverride').catch(() => null) ?? null
+
+        // 最终渠道：优先使用覆盖值，否则跟随 infra 检测结果
+        const effectiveChannel: 'infra' | 'mybricks' = channelOverride === 'mybricks' ? 'mybricks' : (infraOk ? 'infra' : 'mybricks')
+        setAIChannel(effectiveChannel)
+
+        if (effectiveChannel !== 'infra') {
           // Infra 不可用，检查用户是否配置了 MyBricks token
           const token = await vsCodeMessage?.call?.('getAIToken').catch(() => '') ?? ''
           setHasAIToken(typeof token === 'string' && token.trim() !== '')
@@ -205,6 +215,19 @@ export default function App() {
     }).catch(() => setHasAIToken(false))
   }, [aiChannel])
 
+  // 手动切换渠道：持久化选择 → reload WebView
+  const switchToMybricks = useCallback(async () => {
+    if (!vsCodeMessage?.call) return
+    await vsCodeMessage.call('setAIChannelOverride', { channel: 'mybricks' }).catch(() => {})
+    vsCodeMessage.call('reloadWebview').catch(() => {})
+  }, [])
+
+  const switchToInfra = useCallback(async () => {
+    if (!vsCodeMessage?.call) return
+    await vsCodeMessage.call('setAIChannelOverride', { channel: null }).catch(() => {})
+    vsCodeMessage.call('reloadWebview').catch(() => {})
+  }, [])
+
   useEffect(() => {
     if (!initSuccess) return
     refreshAIToken()
@@ -222,23 +245,54 @@ export default function App() {
     myBricksAPIRefGetter: () => myBricksAPIRef,
   })
 
+  // 自动保存防抖 timer
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 标记已编辑：触发保存按钮 * 号，并自动保存（未命名文件时改为右下角提醒）
+  const markEdited = useCallback(() => {
+    setChanged((c) => c + 1)
+
+    // 防抖自动保存：1s 内连续编辑只触发一次
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (!vsCodeMessage?.call) return
+      // 先查当前是否有关联文件路径
+      const fileResult = await vsCodeMessage.call('getFileContent').catch(() => null)
+      const currentFilePath: string | null = fileResult?.path ?? null
+      if (currentFilePath) {
+        // 有文件路径 → 直接静默保存（复用 save 逻辑，不弹成功提示）
+        saveRef.current?.()
+      } else {
+        // 未命名文件 → 通知插件侧弹 VSCode 右下角提醒
+        vsCodeMessage.call('notifyUnnamedFileDirty').catch(() => {})
+      }
+    }, 1000)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    ;(window as any)._mybricksOnEdit_ = markEdited
+
+    console.log('_mybricksOnEdit_', (window as any)._mybricksOnEdit_)
+  }, [markEdited])
+
   // 保存：直接保存 dump() 的结果到当前设计文件（.ui / .mybricks）
-  const save = useCallback(async () => {
+  // silent=true 时自动保存静默执行，不弹成功/失败提示
+  const save = useCallback(async (silent = false) => {
     const designer = designerRef.current
     if (!designer) {
-      message.error('设计器未初始化')
+      if (!silent) message.error('设计器未初始化')
       return
     }
     try {
       // 直接获取 dump 的 JSON 数据
       const json = designer.dump()
       if (!json) {
-        message.error('无法获取设计器数据')
+        if (!silent) message.error('无法获取设计器数据')
         return
       }
 
       if (!vsCodeMessage) {
-        message.warning('当前环境无法保存，请使用 VSCode 插件')
+        if (!silent) message.warning('当前环境无法保存，请使用 VSCode 插件')
         return
       }
 
@@ -254,18 +308,29 @@ export default function App() {
         if (res.path) {
           const savedName = extractFileName(res.path)
           setCurrentFileName(savedName)
-          message.success(`已保存: ${savedName}`)
+          if (!silent) message.success(`已保存: ${savedName}`)
         } else {
-          message.success('保存完成')
+          if (!silent) message.success('保存完成')
         }
-      } else if (res?.message && res.message !== '用户取消保存') {
+      } else if (!silent && res?.message && res.message !== '用户取消保存') {
         message.error(res.message)
       }
     } catch (error) {
       console.error('保存失败:', error)
-      message.error(error instanceof Error ? error.message : '保存失败')
+      if (!silent) message.error(error instanceof Error ? error.message : '保存失败')
     }
   }, [extractFileName])
+
+  // 保持 saveRef 始终指向最新的 save（供防抖回调调用）
+  useEffect(() => {
+    saveRef.current = () => save(true)
+  }, [save])
+
+  // 直接操作 DOM 更新保存按钮 * 号（SPADesigner 内部缓存了 toolbar，无法通过 React re-render 更新）
+  useEffect(() => {
+    const btn = document.getElementById('mybricks-save-btn')
+    if (btn) btn.textContent = changed ? '*保存' : '保存'
+  }, [changed])
 
   // 左边标题栏：文件名
   const titleBar = useMemo(() => (
@@ -290,6 +355,7 @@ export default function App() {
   const toolbarBtns = useMemo(() => (
     <div style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: 8, paddingLeft: 10, paddingRight: 10, display: 'flex' }}>
         <button
+          id='mybricks-save-btn'
           style={{
             border: 0,
             borderRadius: 6,
@@ -301,13 +367,13 @@ export default function App() {
             color: '#fff',
             fontWeight: 'bold',
           }}
-          onClick={save}
+          onClick={() => save()}
         >
-          {changed ? '*' : ''}保存
+          保存
         </button>
 
         <Popover
-          trigger='hover'
+          trigger='click'
           placement='bottomRight'
           arrow={false}
           overlayInnerStyle={{
@@ -361,6 +427,46 @@ export default function App() {
                     </span>
                   </div>
                 )}
+                {infraAvailable && aiChannel === 'infra' && (
+                  <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
+                    <button
+                      onClick={switchToMybricks}
+                      style={{
+                        width: '100%',
+                        border: '1px solid var(--mybricks-color-primary)',
+                        borderRadius: 4,
+                        padding: '3px 0',
+                        cursor: 'pointer',
+                        fontSize: 11,
+                        color: 'var(--mybricks-color-primary)',
+                        background: '#fff',
+                        fontWeight: 500,
+                      }}
+                    >
+                      切换至 MyBricks 渠道
+                    </button>
+                  </div>
+                )}
+                {infraAvailable && aiChannel === 'mybricks' && (
+                  <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
+                    <button
+                      onClick={switchToInfra}
+                      style={{
+                        width: '100%',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 4,
+                        padding: '3px 0',
+                        cursor: 'pointer',
+                        fontSize: 11,
+                        color: '#374151',
+                        background: '#fff',
+                        fontWeight: 500,
+                      }}
+                    >
+                      切换至默认渠道
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           }
@@ -389,7 +495,7 @@ export default function App() {
           </Tooltip>
         </Popover> */}
     </div>
-  ), [changed, save, appVersion, designerVersion, pluginAIVersion, aiChannel])
+  ), [save, appVersion, designerVersion, pluginAIVersion, aiChannel, infraAvailable, switchToMybricks, switchToInfra])
 
   return (
     <ConfigProvider {...ANTD_CONFIG}>
@@ -456,7 +562,7 @@ export default function App() {
               toolbar={() => toolbarBtns}
               onLoad={(e) => console.log('loaded')}
               onMessage={onMessage}
-              onEdit={() => setChanged(changed + 1)}
+              onEdit={markEdited}
             />
           )}
           {/* SPADesigner 加载中占位 */}

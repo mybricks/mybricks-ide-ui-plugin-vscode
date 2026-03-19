@@ -24,6 +24,31 @@ function registerHandlers(messageApiInstance, context) {
     return vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
   })
 
+  // 读取 AI 渠道覆盖偏好（null 表示未设置，跟随 infra 检测结果）
+  messageApiInstance.registerHandler('getAIChannelOverride', () => {
+    return context.globalState.get('mybricks.aiChannelOverride', null)
+  })
+
+  // 设置 AI 渠道覆盖偏好（'mybricks' 或 null 重置）
+  messageApiInstance.registerHandler('setAIChannelOverride', async (data) => {
+    const channel = data?.channel ?? null
+    await context.globalState.update('mybricks.aiChannelOverride', channel)
+    return { success: true }
+  })
+
+  // 重新加载当前 WebView 页面（重新赋值 html 触发完整刷新）
+  // 注意：需先返回响应，再执行 reload，否则 webview 重建后 response 无法送达前端
+  messageApiInstance.registerHandler('reloadWebview', () => {
+    setImmediate(() => {
+      const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+      const webviewManager = getWebviewManager()
+      const currentFilePath = webviewManager.getCurrentFilePath()
+      const webviewPanel = webviewManager.getWebviewPanelInstance()
+      webviewPanel.reloadPanel(currentFilePath)
+    })
+    return { success: true }
+  })
+
   // 读取 AI 请求凭证（Token）
   messageApiInstance.registerHandler('getAIToken', () => {
     const token = vscode.workspace.getConfiguration('mybricks').get('ai.token')
@@ -61,6 +86,18 @@ function registerHandlers(messageApiInstance, context) {
   // 保存低码项目
   messageApiInstance.registerHandler('saveFileContent', async (data) => {
     saveFileContent(context, data)
+  })
+
+  // 未命名文件有编辑时通知用户保存（右下角 VSCode 原生提醒）
+  // 防重：60s 内只弹一次
+  let _unnamedDirtyNotifiedAt = 0
+  messageApiInstance.registerHandler('notifyUnnamedFileDirty', () => {
+    const now = Date.now()
+    if (now - _unnamedDirtyNotifiedAt < 60_000) return
+    _unnamedDirtyNotifiedAt = now
+    vscode.window.showWarningMessage(
+      '当前设计文件尚未保存到磁盘，建议先保存点击上方「保存」按钮进行保存。'
+    )
   })
 
   // AI 插件下载文件：弹窗选择保存路径，将 content 按字符串写入
