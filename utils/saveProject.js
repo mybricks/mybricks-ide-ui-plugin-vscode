@@ -15,14 +15,16 @@ function getFileContent(context, filePath = null) {
     // 如果指定了文件路径，直接读取该文件
     if (filePath && fs.existsSync(filePath)) {
       const raw = fs.readFileSync(filePath, 'utf-8').trim()
-      if (!raw) return { content: null, path: filePath }
-      return { content: JSON.parse(raw), path: filePath }
+      const mtime = fs.statSync(filePath).mtimeMs
+      if (!raw) return { content: null, path: filePath, mtime }
+      return { content: JSON.parse(raw), path: filePath, mtime }
     }
 
     // 没有指定文件路径，返回 null（新建项目）
     return {
       content: null,
       path: null,
+      mtime: null,
     }
   } catch (error) {
     vscode.window.showErrorMessage(`读取项目失败: ${error.message}`)
@@ -57,15 +59,29 @@ async function saveProject(context, saveContent, currentFilePath) {
     if (!savePath) {
       const preferredExt = getPreferredExtension()
       const workspaceFolder = getWorkspaceFolder(context)
-      const defaultUri = vscode.Uri.file(path.join(workspaceFolder.fsPath, 'project' + preferredExt))
-      const uri = await vscode.window.showSaveDialog({
-        defaultUri,
-        filters: { 'MyBricks 设计文件': ['ui', 'mybricks'], 'All Files': ['*'] },
-        title: '保存 MyBricks 项目',
+
+      const input = await vscode.window.showInputBox({
+        title: '新建 MyBricks 设计文件',
+        prompt: `输入文件名，将保存到工作区根目录（后缀 ${preferredExt}）`,
+        value: 'project',
+        validateInput: (v) => {
+          if (!v.trim()) return '文件名不能为空'
+          if (/[\\/:*?"<>|]/.test(v)) return '文件名包含非法字符'
+          return null
+        },
       })
-      if (!uri) return { success: false, message: '用户取消保存' }
-      savePath = uri.fsPath
-      if (!path.extname(savePath)) savePath = savePath + preferredExt
+      if (input == null) return { success: false, message: '用户取消保存' }
+
+      let fileName = input.trim()
+      // 没有后缀或后缀不是支持的格式，统一补上首选后缀
+      const ext = path.extname(fileName)
+      if (!ext) {
+        fileName = fileName + preferredExt
+      } else if (ext !== '.ui' && ext !== '.mybricks') {
+        fileName = path.basename(fileName, ext) + preferredExt
+      }
+
+      savePath = path.join(workspaceFolder.fsPath, fileName)
     }
 
     const dir = path.dirname(savePath)

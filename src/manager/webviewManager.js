@@ -1,19 +1,24 @@
 const vscode = require('vscode')
 const EventEmitter = require('events')
-const WebviewPanel = require('../renderer/webviewPanel')
-const registerHandlers = require('../registerHandler')
+const path = require('path')
 
 /**
- * WebviewManager - 集中管理 Webview 生命周期和状态
+ * WebviewManager - 集中管理 CustomEditor Webview 生命周期和状态
  * 单例模式，所有地方都通过 getInstance() 获取
  */
 class WebviewManager extends EventEmitter {
   constructor() {
     super()
-    this.webviewPanel = new WebviewPanel()
     this.context = null
-    this.currentFilePath = null // 当前“激活”的文件路径（最后打开或最后聚焦的面板对应文件）
-    this.pendingFilePathFromUri = null // 由 vscode:// URI 传入的 path，供 openIDE 命令使用一次后清除
+    /**
+     * 每个已打开文件的面板与消息 API 映射
+     * @type {Map<string, { panel: vscode.WebviewPanel, messageApiInstance: import('../../utils/messageApi') }>}
+     */
+    this.panelMap = new Map()
+    /** 当前"激活"的文件路径（最后聚焦/打开的面板所对应的文件） */
+    this.currentFilePath = null
+    /** 由 vscode:// URI 传入的待打开路径，供 openIDE 命令一次性消费 */
+    this.pendingFilePathFromUri = null
   }
 
   /**
@@ -22,60 +27,140 @@ class WebviewManager extends EventEmitter {
    */
   initialize(context) {
     this.context = context
-    // emit 初始化事件，MCP Server 可以监听此事件
     this.emit('initialized', { context })
   }
 
-  /**
-   * 获取或创建当前文件对应的 Webview 面板（不同文件对应不同面板）
-   * @returns {Promise<vscode.WebviewPanel>}
-   */
-  async ensurePanel() {
-    console.log(`[MyBricks:webviewManager] ensurePanel 调用 currentFilePath=${this.currentFilePath}`)
-    const panel = await this.webviewPanel.createOrShow(
-      this.context,
-      registerHandlers,
-      this.currentFilePath,
-      (filePath) => {
-        this.currentFilePath = filePath
-      }
-    )
-    console.log(`[MyBricks:webviewManager] ensurePanel 完成 panel 存在=${!!panel}`)
-    this.emit('panelOpened', { panel })
-    
-    // 记录最近打开的文件
-    if (this.currentFilePath) {
-      this.addRecentFile(this.currentFilePath)
-    }
+  // ─── Panel 注册 / 注销 ────────────────────────────────────────────────────
 
-    return panel
+  /**
+   * 注册一个已创建的 CustomEditor 面板
+   * @param {string} filePath
+   * @param {vscode.WebviewPanel} panel
+   * @param {import('../../utils/messageApi')} messageApiInstance
+   */
+  registerPanel(filePath, panel, messageApiInstance) {
+    const key = this._normalize(filePath)
+    this.panelMap.set(key, { panel, messageApiInstance })
+    this.currentFilePath = filePath
+    this.addRecentFile(filePath)
+    this.emit('panelOpened', { panel, filePath })
   }
 
   /**
+   * 注销一个 CustomEditor 面板（关闭时调用）
+   * @param {string} filePath
+   */
+  unregisterPanel(filePath) {
+    const key = this._normalize(filePath)
+    this.panelMap.delete(key)
+    if (this._normalize(this.currentFilePath) === key) {
+      // 切换到最后一个剩余面板（如果有）
+      const last = [...this.panelMap.values()].pop()
+      this.currentFilePath = last ? this._getFilePathByEntry(last) : null
+    }
+  }
+
+  // ─── 查询 ─────────────────────────────────────────────────────────────────
+
+  /**
+   * 获取当前"激活"文件对应的面板
+   * @returns {vscode.WebviewPanel|undefined}
+   */
+  getPanel() {
+    const key = this._normalize(this.currentFilePath)
+    return this.panelMap.get(key)?.panel
+  }
+
+  /**
+   * 获取当前"激活"文件对应的 MessageAPI
+   * @returns {import('../../utils/messageApi')|undefined}
+   */
+  getMessageAPI() {
+    const key = this._normalize(this.currentFilePath)
+    return this.panelMap.get(key)?.messageApiInstance
+  }
+
+  /**
+   * 根据文件路径获取对应的 MessageAPI
+   * @param {string} filePath
+   * @returns {import('../../utils/messageApi')|undefined}
+   */
+  getMessageAPIByFilePath(filePath) {
+    const key = this._normalize(filePath)
+    return this.panelMap.get(key)?.messageApiInstance
+  }
+
+  /**
+   * 是否有任意一个面板已打开
+   * @returns {boolean}
+   */
+  isReady() {
+    return this.panelMap.size > 0
+  }
+
+  // ─── 广播 ─────────────────────────────────────────────────────────────────
+
+  /**
+   * 向所有已打开的面板广播通知（例如配置变更）
+   * @param {string} event
+   * @param {any} data
+   */
+  notifyAllPanels(event, data = {}) {
+    for (const { messageApiInstance } of this.panelMap.values()) {
+      try {
+        messageApiInstance.notifyWebview(event, data)
+      } catch (e) {
+        // 面板可能已销毁，忽略错误
+      }
+    }
+  }
+
+  // ─── 重新加载 ─────────────────────────────────────────────────────────────
+
+  /**
+   * 重新加载指定文件路径对应面板的 HTML（触发完整刷新）
+   * 由 registerHandler 中的 reloadWebview 处理器调用
+   * @param {string|null} filePath
+   * @returns {boolean}
+   */
+  reloadPanel(filePath) {
+    const key = this._normalize(filePath)
+    const entry = this.panelMap.get(key)
+    if (!entry) return false
+
+    // 动态 require 避免循环依赖
+    const path_ = require('path')
+    const fs = require('fs')
+    const htmlPath = path_.join(__dirname, '../renderer/webviewPanel/index.html')
+    let html = fs.readFileSync(htmlPath, 'utf8')
+    const extensionUri = this.context.extensionUri
+    html = html.replace(/\.\/asserts\/([^"'\s)]+)/g, (_, relPath) =>
+      entry.panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts', relPath)).toString()
+    )
+    html = html.replace(/\.\/out\/webview\/([^"'\s)]+)/g, (_, relPath) =>
+      entry.panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview', relPath)).toString()
+    )
+    // 先置空再赋值，强制 VSCode 感知内容变化并触发 webview 重载
+    entry.panel.webview.html = ''
+    entry.panel.webview.html = html
+    return true
+  }
+
+  // ─── 最近文件 ─────────────────────────────────────────────────────────────
+
+  /**
    * 添加最近打开的文件
-   * @param {string} filePath 
+   * @param {string} filePath
    */
   async addRecentFile(filePath) {
-    if (!this.context) return
-    
+    if (!this.context || !filePath) return
     const maxCount = 10
     let recentFiles = this.context.globalState.get('mybricks.recentFiles', [])
-    
-    // 移除已存在的当前路径（避免重复，并将其置顶）
-    recentFiles = recentFiles.filter(f => f !== filePath)
-    
-    // 添加到开头
+    recentFiles = recentFiles.filter((f) => f !== filePath)
     recentFiles.unshift(filePath)
-    
-    // 限制数量
-    if (recentFiles.length > maxCount) {
-      recentFiles = recentFiles.slice(0, maxCount)
-    }
-    
+    if (recentFiles.length > maxCount) recentFiles = recentFiles.slice(0, maxCount)
     await this.context.globalState.update('mybricks.recentFiles', recentFiles)
-    
-    // 通知侧边栏更新
-    this.notifySidebarRecentFiles()
+    this.emit('recentFilesUpdated', this.getRecentFiles())
   }
 
   /**
@@ -89,81 +174,26 @@ class WebviewManager extends EventEmitter {
 
   /**
    * 移除最近打开的文件
-   * @param {string} filePath 
+   * @param {string} filePath
    */
   async removeRecentFile(filePath) {
     if (!this.context) return
-    
     let recentFiles = this.context.globalState.get('mybricks.recentFiles', [])
-    recentFiles = recentFiles.filter(f => f !== filePath)
-    
+    recentFiles = recentFiles.filter((f) => f !== filePath)
     await this.context.globalState.update('mybricks.recentFiles', recentFiles)
-    
-    // 通知侧边栏更新
-    this.notifySidebarRecentFiles()
-  }
-
-  /**
-   * 通知侧边栏更新最近文件列表
-   */
-  notifySidebarRecentFiles() {
-    // 这里需要获取侧边栏的 webviewView 实例
-    // 但目前 webviewView 实例是在 src/renderer/webviewView/index.js 中管理的
-    // 我们可以通过事件触发，或者在 extension.js 中保存 webviewView 引用并传递给 manager
-    // 或者更简单：在 src/event.js 中监听 manager 的事件
     this.emit('recentFilesUpdated', this.getRecentFiles())
   }
 
-  /**
-   * 获取当前“激活”文件对应的 Webview 面板（无当前文件时返回任意已存在面板）
-   * @returns {vscode.WebviewPanel|undefined}
-   */
-  getPanel() {
-    return this.webviewPanel.getPanel(this.currentFilePath)
-  }
+  // ─── 当前文件路径 ─────────────────────────────────────────────────────────
 
   /**
-   * 获取当前“激活”文件对应的 MessageAPI
-   * @returns {MessageAPI|undefined}
-   */
-  getMessageAPI() {
-    return this.webviewPanel.getMessageAPI(this.currentFilePath)
-  }
-
-  /**
-   * 是否有任意一个 Webview 面板已打开
-   * @returns {boolean}
-   */
-  isReady() {
-    return this.webviewPanel.hasAnyPanel()
-  }
-
-  /**
-   * 获取 WebviewPanel 实例（内部使用）
-   * @returns {WebviewPanel}
-   */
-  getWebviewPanelInstance() {
-    return this.webviewPanel
-  }
-
-  /**
-   * 获取当前“激活”文件对应面板的 MyBricksAPI
-   * @returns {Proxy|undefined}
-   */
-  getMyBricksAPI() {
-    return this.webviewPanel.getMyBricksAPI(this.currentFilePath)
-  }
-
-  /**
-   * 设置当前打开的文件路径
-   * @param {string|null} filePath - 文件路径
+   * @param {string|null} filePath
    */
   setCurrentFilePath(filePath) {
     this.currentFilePath = filePath
   }
 
   /**
-   * 获取当前打开的文件路径
    * @returns {string|null}
    */
   getCurrentFilePath() {
@@ -183,9 +213,23 @@ class WebviewManager extends EventEmitter {
    * @returns {string|null}
    */
   takePendingFilePathFromUri() {
-    const path = this.pendingFilePathFromUri
+    const p = this.pendingFilePathFromUri
     this.pendingFilePathFromUri = null
-    return path
+    return p
+  }
+
+  // ─── 私有工具 ─────────────────────────────────────────────────────────────
+
+  _normalize(filePath) {
+    if (!filePath) return '__unnamed__'
+    return path.normalize(filePath)
+  }
+
+  _getFilePathByEntry(entry) {
+    for (const [key, e] of this.panelMap.entries()) {
+      if (e === entry) return key === '__unnamed__' ? null : key
+    }
+    return null
   }
 }
 

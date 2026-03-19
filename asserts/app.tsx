@@ -1,7 +1,8 @@
 /**
  * MyBricks 主应用组件
  */
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useCallback, useEffect, useMemo, createContext, useContext } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ConfigProvider,
   message,
@@ -35,6 +36,26 @@ const ANTD_CONFIG = {
 
 const vsCodeMessage = (window as any).webViewMessageApi
 
+/** toolbar portal 共享的上下文结构，后续可按需扩展字段 */
+interface ToolbarContextValue {
+  /** 最后一次保存的时间，null 表示尚未保存（新文件） */
+  lastSavedAt: Date | null
+}
+
+const ToolbarContext = createContext<ToolbarContextValue>({ lastSavedAt: null })
+
+/** 展示最后保存时间，通过 ToolbarContext 感知更新（绕过 SPADesigner 对 toolbar 的缓存） */
+function SaveTimeDisplay() {
+  const { lastSavedAt: d } = useContext(ToolbarContext)
+  if (!d) return <span style={{ fontSize: 11, color: '#888', userSelect: 'none', letterSpacing: '0.01em' }}>尚未保存</span>
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const text = `保存于 ${isToday ? '' : `${d.getMonth() + 1}/${d.getDate()} `}${hh}:${mm}`
+  return <span style={{ fontSize: 11, color: '#888', userSelect: 'none', letterSpacing: '0.01em' }}>{text}</span>
+}
+
 /**
  * 动态插入 <script> 标签，加载完成后 resolve
  */
@@ -54,6 +75,9 @@ function loadScript(url: string): Promise<void> {
 export default function App() {
   // 内容变更计数
   const [changed, setChanged] = useState(0)
+
+  // 最后一次保存的时间
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
   const [exportPopoverVisible, setExportPopoverVisible] = useState(false)
 
@@ -104,13 +128,17 @@ export default function App() {
   // Infra 是否可用（用于判断是否允许手动切换渠道）
   const [infraAvailable, setInfraAvailable] = useState(false)
 
-  // 0. 启动时立即获取当前文件名（不等 SPADesigner 加载）
+  // 0. 启动时立即获取当前文件名和文件修改时间（不等 SPADesigner 加载）
   useEffect(() => {
     if (!vsCodeMessage?.call) return
     vsCodeMessage.call('getFileContent').then((fileResult: any) => {
       const filePath: string = fileResult?.path ?? ''
       if (filePath) {
         setCurrentFileName(extractFileName(filePath))
+      }
+      // 有文件路径时用文件的 mtime 初始化保存时间，新文件保持 null（显示"尚未保存"）
+      if (fileResult?.mtime) {
+        setLastSavedAt(new Date(fileResult.mtime))
       }
     }).catch(() => {})
   }, [])
@@ -245,28 +273,25 @@ export default function App() {
     myBricksAPIRefGetter: () => myBricksAPIRef,
   })
 
-  // 自动保存防抖 timer
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // 标记已编辑：触发保存按钮 * 号，并自动保存（未命名文件时改为右下角提醒）
+  // 标记已编辑：触发保存按钮 * 号，并通知 extension 文档已变脏（VSCode 标签圆点）
   const markEdited = useCallback(() => {
     setChanged((c) => c + 1)
 
-    // 防抖自动保存：1s 内连续编辑只触发一次
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-    autoSaveTimerRef.current = setTimeout(async () => {
-      if (!vsCodeMessage?.call) return
-      // 先查当前是否有关联文件路径
-      const fileResult = await vsCodeMessage.call('getFileContent').catch(() => null)
-      const currentFilePath: string | null = fileResult?.path ?? null
-      if (currentFilePath) {
-        // 有文件路径 → 直接静默保存（复用 save 逻辑，不弹成功提示）
-        saveRef.current?.()
-      } else {
-        // 未命名文件 → 通知插件侧弹 VSCode 右下角提醒
-        vsCodeMessage.call('notifyUnnamedFileDirty').catch(() => {})
-      }
-    }, 1000)
+    // 通知 extension 内容已变更，由 VSCode CustomEditorProvider 驱动标签脏状态
+    vsCodeMessage?.call('notifyContentChanged', {}).catch(() => {})
+
+    // 自动保存已禁用：改为依赖 Ctrl+S（VSCode 原生保存机制）
+    // if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    // autoSaveTimerRef.current = setTimeout(async () => {
+    //   if (!vsCodeMessage?.call) return
+    //   const fileResult = await vsCodeMessage.call('getFileContent').catch(() => null)
+    //   const currentFilePath: string | null = fileResult?.path ?? null
+    //   if (currentFilePath) {
+    //     saveRef.current?.()
+    //   } else {
+    //     vsCodeMessage.call('notifyUnnamedFileDirty').catch(() => {})
+    //   }
+    // }, 1000)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -305,6 +330,7 @@ export default function App() {
       const res = await vsCodeMessage.call('saveProject', { saveContent: json, currentFilePath })
       if (res?.success) {
         setChanged(0)
+        setLastSavedAt(new Date())
         if (res.path) {
           const savedName = extractFileName(res.path)
           setCurrentFileName(savedName)
@@ -326,11 +352,15 @@ export default function App() {
     saveRef.current = () => save(true)
   }, [save])
 
-  // 直接操作 DOM 更新保存按钮 * 号（SPADesigner 内部缓存了 toolbar，无法通过 React re-render 更新）
+  // Ctrl+S 快捷键：extension 发送 triggerSave 通知时执行保存
   useEffect(() => {
-    const btn = document.getElementById('mybricks-save-btn')
-    if (btn) btn.textContent = changed ? '*保存' : '保存'
-  }, [changed])
+    if (!vsCodeMessage?.on) return
+    const unsub = vsCodeMessage.on('triggerSave', () => {
+      save(true)
+    })
+    return () => unsub?.()
+  }, [save])
+
 
   // 左边标题栏：文件名
   const titleBar = useMemo(() => (
@@ -351,155 +381,97 @@ export default function App() {
     </div>
   ), [currentFileName])
 
-  // 右边工具栏按钮：设计器挂载点 + 保存按钮
+  // toolbar 传给 SPADesigner 的只是一个空容器，内容通过 createPortal 从 App 树注入
+  // 这样 SPADesigner 缓存 toolbar 也无所谓，portal 内容始终随 App state 更新
   const toolbarBtns = useMemo(() => (
-    <div style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: 8, paddingLeft: 10, paddingRight: 10, display: 'flex' }}>
-        <button
-          id='mybricks-save-btn'
-          style={{
-            border: 0,
-            borderRadius: 6,
-            padding: '3px 12px',
-            margin: '0 2px',
-            cursor: 'pointer',
-            fontSize: 12,
-            backgroundColor: 'var(--mybricks-color-primary)',
-            color: '#fff',
-            fontWeight: 'bold',
-          }}
-          onClick={() => save()}
-        >
-          保存
-        </button>
+    <div id='mybricks-toolbar-root' style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: 8, paddingLeft: 10, paddingRight: 10, display: 'flex' }} />
+  ), [])
 
-        <Popover
-          trigger='click'
-          placement='bottomRight'
-          arrow={false}
-          overlayInnerStyle={{
-            padding: 0,
-            background: '#fff',
-            border: '1px solid #e5e7eb',
-            borderRadius: 6,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-            minWidth: 192,
-            overflow: 'hidden',
-          }}
-          content={
-            <div style={{ fontFamily: 'var(--vscode-editor-font-family, "SF Mono", Menlo, monospace)', fontSize: 12 }}>
-              <div style={{
-                padding: '8px 12px 7px',
-                background: '#f9fafb',
-                borderBottom: '1px solid #e5e7eb',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}>
-                <svg viewBox="0 0 16 16" width="12" height="12" fill="var(--mybricks-color-primary)">
-                  <path d="M7.443.505a1 1 0 011.114 0l6 4A1 1 0 0115 5.5v5a1 1 0 00-.443.995l-6 4a1 1 0 01-1.114 0l-6-4A1 1 0 011 10.5v-5a1 1 0 00.443-.995l6-4zM8 1.8L2.557 5.5 8 9.2l5.443-3.7L8 1.8zM2 6.756V10.5l5.5 3.667V10.42L2 6.756zM9.5 10.42v3.747L15 10.5V6.756L9.5 10.42z"/>
-                </svg>
-                <span style={{ color: '#111827', fontWeight: 600, fontSize: 12, letterSpacing: '0.01em' }}>依赖库信息</span>
-              </div>
-              <div style={{ padding: '8px 12px' }}>
-                {appVersion && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: designerVersion ? 5 : 0 }}>
-                    <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>version</span>
-                    <span style={{ color: 'var(--mybricks-color-primary)', fontWeight: 700, fontSize: 12 }}>v{appVersion}</span>
-                  </div>
-                )}
-                {designerVersion && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: pluginAIVersion ? 5 : 0 }}>
-                    <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>设计器</span>
-                    <span style={{ color: '#374151', fontSize: 12 }}>v{designerVersion}</span>
-                  </div>
-                )}
-                {pluginAIVersion && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: aiChannel ? 5 : 0 }}>
-                    <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 插件</span>
-                    <span style={{ color: '#374151', fontSize: 12 }}>v{pluginAIVersion}</span>
-                  </div>
-                )}
-                {aiChannel && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 渠道</span>
-                    <span style={{ color: aiChannel === 'infra' ? '#374151' : 'var(--mybricks-color-primary)', fontSize: 12, fontWeight: aiChannel === 'mybricks' ? 600 : 400 }}>
-                      {aiChannel === 'infra' ? '默认' : 'MyBricks'}
-                    </span>
-                  </div>
-                )}
-                {infraAvailable && aiChannel === 'infra' && (
-                  <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
-                    <button
-                      onClick={switchToMybricks}
-                      style={{
-                        width: '100%',
-                        border: '1px solid var(--mybricks-color-primary)',
-                        borderRadius: 4,
-                        padding: '3px 0',
-                        cursor: 'pointer',
-                        fontSize: 11,
-                        color: 'var(--mybricks-color-primary)',
-                        background: '#fff',
-                        fontWeight: 500,
-                      }}
-                    >
-                      切换至 MyBricks 渠道
-                    </button>
-                  </div>
-                )}
-                {infraAvailable && aiChannel === 'mybricks' && (
-                  <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
-                    <button
-                      onClick={switchToInfra}
-                      style={{
-                        width: '100%',
-                        border: '1px solid #d1d5db',
-                        borderRadius: 4,
-                        padding: '3px 0',
-                        cursor: 'pointer',
-                        fontSize: 11,
-                        color: '#374151',
-                        background: '#fff',
-                        fontWeight: 500,
-                      }}
-                    >
-                      切换至默认渠道
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          }
-        >
-          <InfoCircleOutlined style={{ color: '#9ca3af', fontSize: 14, cursor: 'pointer' }} />
-        </Popover>
-        {/* <Popover
-          title='导出源码'
-          open={exportPopoverVisible}
-          onOpenChange={setExportPopoverVisible}
-          trigger='click'
-          placement='bottomRight'
-          arrow={false}
-          content={
-            <ExportCode
-              designerRef={designerRef}
-              onClose={() => setExportPopoverVisible(false)}
-            />
-          }
-        >
-          <Tooltip title='导出源码'>
-            <button className={'button'}>
-              <VerticalAlignBottomOutlined />
-              导出源码
-            </button>
-          </Tooltip>
-        </Popover> */}
-    </div>
-  ), [save, appVersion, designerVersion, pluginAIVersion, aiChannel, infraAvailable, switchToMybricks, switchToInfra])
+  // SPADesigner onLoad 触发时 toolbar DOM 已渲染完毕，此时挂载 portal
+  const [toolbarPortalRoot, setToolbarPortalRoot] = useState<Element | null>(null)
+  const onDesignerLoad = useCallback(() => {
+    setToolbarPortalRoot(document.getElementById('mybricks-toolbar-root'))
+  }, [])
 
   return (
+    <ToolbarContext.Provider value={{ lastSavedAt }}>
     <ConfigProvider {...ANTD_CONFIG}>
       <div className='ide'>
+        {/* toolbar portal：从 App 树直接渲染到 SPADesigner 的 toolbar 容器内，state 更新可正常穿透 */}
+        {toolbarPortalRoot && createPortal(
+          <>
+            <SaveTimeDisplay />
+            <Popover
+              trigger='click'
+              placement='bottomRight'
+              arrow={false}
+              overlayInnerStyle={{
+                padding: 0,
+                background: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: 6,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                minWidth: 192,
+                overflow: 'hidden',
+              }}
+              content={
+                <div style={{ fontFamily: 'var(--vscode-editor-font-family, "SF Mono", Menlo, monospace)', fontSize: 12 }}>
+                  <div style={{ padding: '8px 12px 7px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="var(--mybricks-color-primary)">
+                      <path d="M7.443.505a1 1 0 011.114 0l6 4A1 1 0 0115 5.5v5a1 1 0 00-.443.995l-6 4a1 1 0 01-1.114 0l-6-4A1 1 0 011 10.5v-5a1 1 0 00.443-.995l6-4zM8 1.8L2.557 5.5 8 9.2l5.443-3.7L8 1.8zM2 6.756V10.5l5.5 3.667V10.42L2 6.756zM9.5 10.42v3.747L15 10.5V6.756L9.5 10.42z"/>
+                    </svg>
+                    <span style={{ color: '#111827', fontWeight: 600, fontSize: 12, letterSpacing: '0.01em' }}>依赖库信息</span>
+                  </div>
+                  <div style={{ padding: '8px 12px' }}>
+                    {appVersion && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: designerVersion ? 5 : 0 }}>
+                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>version</span>
+                        <span style={{ color: 'var(--mybricks-color-primary)', fontWeight: 700, fontSize: 12 }}>v{appVersion}</span>
+                      </div>
+                    )}
+                    {designerVersion && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: pluginAIVersion ? 5 : 0 }}>
+                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>设计器</span>
+                        <span style={{ color: '#374151', fontSize: 12 }}>v{designerVersion}</span>
+                      </div>
+                    )}
+                    {pluginAIVersion && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: aiChannel ? 5 : 0 }}>
+                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 插件</span>
+                        <span style={{ color: '#374151', fontSize: 12 }}>v{pluginAIVersion}</span>
+                      </div>
+                    )}
+                    {aiChannel && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 渠道</span>
+                        <span style={{ color: aiChannel === 'infra' ? '#374151' : 'var(--mybricks-color-primary)', fontSize: 12, fontWeight: aiChannel === 'mybricks' ? 600 : 400 }}>
+                          {aiChannel === 'infra' ? '默认' : 'MyBricks'}
+                        </span>
+                      </div>
+                    )}
+                    {infraAvailable && aiChannel === 'infra' && (
+                      <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
+                        <button onClick={switchToMybricks} style={{ width: '100%', border: '1px solid var(--mybricks-color-primary)', borderRadius: 4, padding: '3px 0', cursor: 'pointer', fontSize: 11, color: 'var(--mybricks-color-primary)', background: '#fff', fontWeight: 500 }}>
+                          切换至 MyBricks 渠道
+                        </button>
+                      </div>
+                    )}
+                    {infraAvailable && aiChannel === 'mybricks' && (
+                      <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
+                        <button onClick={switchToInfra} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 4, padding: '3px 0', cursor: 'pointer', fontSize: 11, color: '#374151', background: '#fff', fontWeight: 500 }}>
+                          切换至默认渠道
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              }
+            >
+              <InfoCircleOutlined style={{ color: '#9ca3af', fontSize: 14, cursor: 'pointer' }} />
+            </Popover>
+          </>,
+          toolbarPortalRoot
+        )}
         {/* 顶部工具栏 */}
         {/* <div className='toolbar'>
           {titleBar}
@@ -560,7 +532,7 @@ export default function App() {
               ref={designerRef}
               titlebar={() => titleBar}
               toolbar={() => toolbarBtns}
-              onLoad={(e) => console.log('loaded')}
+              onLoad={onDesignerLoad}
               onMessage={onMessage}
               onEdit={markEdited}
             />
@@ -581,5 +553,6 @@ export default function App() {
         </div>
       </div>
     </ConfigProvider>
+    </ToolbarContext.Provider>
   )
 }

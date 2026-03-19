@@ -1,6 +1,9 @@
 const fs = require('fs')
+const path = require('path')
 const vscode = require('vscode')
 const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+const { getPreferredExtension } = require('./fileExtension')
+const { getWorkspaceFolder } = require('../utils/utils')
 
 /**
  * 处理侧边栏消息事件
@@ -28,10 +31,38 @@ function handleSidebarMessage(webviewView, context) {
   webviewView.webview.onDidReceiveMessage(
     async (message) => {
       switch (message.command) {
-        // 打开 MyBricks IDE
-        case 'openIDE':
-          vscode.commands.executeCommand('mybricks.openIDE')
+        // 新建 .ui 文件（侧边栏按钮：输入文件名后创建并打开）
+        case 'openIDE': {
+          const preferredExt = getPreferredExtension()
+          const workspaceFolder = getWorkspaceFolder(context)
+          const extLabel = preferredExt.replace('.', '').toUpperCase()
+          const defaultUri = workspaceFolder
+            ? vscode.Uri.joinPath(workspaceFolder, 'project' + preferredExt)
+            : undefined
+          vscode.window.showSaveDialog({
+            title: '新建 MyBricks 设计文件',
+            defaultUri,
+            filters: {
+              [`MyBricks 设计文件 (${extLabel})`]: [preferredExt.replace('.', '')],
+              '所有文件': ['*'],
+            },
+            saveLabel: '新建',
+          }).then((saveUri) => {
+            if (!saveUri) return
+            let filePath = saveUri.fsPath
+            const ext = path.extname(filePath)
+            if (!ext) {
+              filePath = filePath + preferredExt
+            } else if (ext !== '.ui' && ext !== '.mybricks') {
+              filePath = path.join(path.dirname(filePath), path.basename(filePath, ext) + preferredExt)
+            }
+            if (!fs.existsSync(filePath)) {
+              fs.writeFileSync(filePath, '{}', 'utf-8')
+            }
+            vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath), { preview: false })
+          })
           break
+        }
         
         // 获取最近文件列表
         case 'getRecentFiles':
@@ -46,9 +77,8 @@ function handleSidebarMessage(webviewView, context) {
         case 'openRecentFile':
           const filePath = message.filePath
           if (fs.existsSync(filePath)) {
-            // 文件存在，打开它
-            // 通过 mybricks.openFile 命令打开
-            vscode.commands.executeCommand('mybricks.openFile', vscode.Uri.file(filePath))
+            // 直接用 vscode.open，VSCode 会自动使用 mybricks.editor CustomEditor
+            vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath), { preview: false })
           } else {
             // 文件不存在，从最近列表中移除
             webviewManager.removeRecentFile(filePath)

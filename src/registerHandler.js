@@ -43,8 +43,7 @@ function registerHandlers(messageApiInstance, context) {
       const { getInstance: getWebviewManager } = require('./manager/webviewManager')
       const webviewManager = getWebviewManager()
       const currentFilePath = webviewManager.getCurrentFilePath()
-      const webviewPanel = webviewManager.getWebviewPanelInstance()
-      webviewPanel.reloadPanel(currentFilePath)
+      webviewManager.reloadPanel(currentFilePath)
     })
     return { success: true }
   })
@@ -173,6 +172,15 @@ function registerHandlers(messageApiInstance, context) {
     const res = { projectName, exportDir }
     console.log('[导出] getCurrentExportDefaults', { currentFilePath, root, res })
     return res
+  })
+
+  // 检查路径是否存在（相对工作区根的路径）
+  messageApiInstance.registerHandler('checkPathExists', (data) => {
+    const root = getWorkspaceRoot()
+    const p = data?.path != null ? String(data.path) : ''
+    if (!p) return { exists: false }
+    const full = path.resolve(root, p)
+    return { exists: fs.existsSync(full) }
   })
 
   // 选择导出目录（打开文件夹选择器，返回相对工作区根的路径及完整路径）

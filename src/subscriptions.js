@@ -23,17 +23,17 @@ function registerSubscriptions(context) {
   const webviewManager = getWebviewManager()
   webviewManager.initialize(context)
 
-  // 注册命令：打开 MyBricks 设计器（若存在由 vscode:// URI 传入的 path 则打开该文件）
-  const openWebCommand = vscode.commands.registerCommand(
-    'mybricks.openIDE',
-    async () => {
-      const pendingPath = webviewManager.takePendingFilePathFromUri()
-      webviewManager.setCurrentFilePath(pendingPath ?? null)
-      return webviewManager.ensurePanel()
+  // 注册命令：右键菜单"用 MyBricks 打开"（CustomEditor 模式：直接用 vscode.open）
+  const openFileCommand = vscode.commands.registerCommand(
+    'mybricks.openFile',
+    async (uri) => {
+      if (uri) {
+        await vscode.commands.executeCommand('vscode.open', uri, { preview: false })
+      }
     }
   )
 
-  // 注册命令：初始化 MyBricks 环境（仅提示，目录与 Skill/MCP 由「开启 MCP 服务」按需处理）
+  // 注册命令：初始化 MyBricks 环境
   const initCommand = vscode.commands.registerCommand(
     'mybricks.init',
     async () => {
@@ -41,11 +41,11 @@ function registerSubscriptions(context) {
     }
   )
 
-  // 注册命令：开启 MCP 服务（仅在此处按需移动 skill 与 MCP 配置，再设置 enabled、启动服务）
+  // 注册命令：开启 MCP 服务
   const enableMCPCommand = vscode.commands.registerCommand(
     'mybricks.enableMCPService',
     async () => {
-      // 1. 若 MCP 服务未启动则先启动（以便 getServerUrl() 有有效端口）
+      // 1. 若 MCP 服务未启动则先启动
       if (!isMCPServerRunning()) {
         await startMCPHttpServer(context)
       }
@@ -57,32 +57,22 @@ function registerSubscriptions(context) {
       // 3. 将「是否开启 MCP」配置设为 true
       await vscode.workspace.getConfiguration('mybricks').update('mcp.enabled', true, vscode.ConfigurationTarget.Global)
 
-      // 4. 若设计器未打开则先打开设计器
-      const panel = webviewManager.getPanel()
-      if (!panel) {
-        await webviewManager.ensurePanel()
-      }
+      // 4. 通知所有已打开面板 setting 已更新
+      webviewManager.notifyAllPanels('mcpSettingChanged', { enabled: true })
+      webviewManager.notifyAllPanels('mcpEnabled', { port: getServerPort() })
 
-      // 5. 通知前端 setting 已更新（前端统一从 setting 读取并监听）
-      const messageApi = webviewManager.getMessageAPI()
-      if (messageApi?.notifyWebview) {
-        messageApi.notifyWebview('mcpSettingChanged', { enabled: true })
-        messageApi.notifyWebview('mcpEnabled', { port: getServerPort() })
-      }
       vscode.window.showInformationMessage('MCP 服务已开启。')
     }
   )
 
-  // 监听配置变化，通知已打开的设计器（MCP 开关、AI Token）
+  // 监听配置变化，通知所有已打开的设计器面板（MCP 开关、AI Token）
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
-    const messageApi = webviewManager.getMessageAPI()
-    if (!messageApi?.notifyWebview) return
     if (e.affectsConfiguration('mybricks.mcp.enabled')) {
       const enabled = vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
-      messageApi.notifyWebview('mcpSettingChanged', { enabled })
+      webviewManager.notifyAllPanels('mcpSettingChanged', { enabled })
     }
     if (e.affectsConfiguration('mybricks.ai.token')) {
-      messageApi.notifyWebview('aiTokenChanged', {})
+      webviewManager.notifyAllPanels('aiTokenChanged', {})
     }
   })
 
@@ -97,7 +87,7 @@ function registerSubscriptions(context) {
   registerCustomEditor(context)
 
   // 将所有订阅添加到 context.subscriptions
-  context.subscriptions.push(openWebCommand)
+  context.subscriptions.push(openFileCommand)
   context.subscriptions.push(initCommand)
   context.subscriptions.push(enableMCPCommand)
   context.subscriptions.push(configChangeDisposable)
@@ -107,4 +97,3 @@ function registerSubscriptions(context) {
 module.exports = {
   registerSubscriptions,
 }
-

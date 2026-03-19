@@ -18,6 +18,8 @@ export interface CodeExportProgress {
 
 export interface CodeExportToVSCodeOptions {
   folderName?: string
+  /** 上次已选择的目标目录路径，传入后跳过目录选择弹窗直接写入 */
+  outputDir?: string
   onProgress?: (progress: CodeExportProgress) => void
   onSuccess?: (result?: unknown) => void
   onError?: (error: Error) => void
@@ -70,13 +72,17 @@ function fileItemsToTree(
 /**
  * 导出到 VS Code 工作区（与 exportToBrowser 对齐的 API）
  * 可在 React 中 import 使用，也会挂到 window.exportCodeToVSCode 供 comlib 使用
+ *
+ * 返回本次实际使用的导出目录路径（不含 folderName），调用方可将其保存，
+ * 下次作为 options.savedPath 传入，跳过目录选择弹窗直接写入。
  */
 export function exportCodeToVSCode(
   files: CodeExportFileItem[],
   options: CodeExportToVSCodeOptions = {}
-): Promise<void> {
+): Promise<string> {
   const {
     folderName = 'mybricks-component',
+    outputDir,
     onProgress,
     onSuccess,
     onError,
@@ -109,31 +115,45 @@ export function exportCodeToVSCode(
 
   notifyProgress(0)
 
-  return webViewMessageApi
-    .call('selectExportDir')
-    .then((res: { path?: string }) => {
-      const path = res?.path
-      if (path == null || path === '') {
+  const pickDir = () =>
+    webViewMessageApi.call('selectExportDir').then((res: { path?: string }) => {
+      const p = res?.path
+      if (p == null || p === '') {
         const cancelErr = new Error('用户取消选择目录')
         onError?.(cancelErr)
         throw cancelErr
       }
-      const basePath = path.replace(/\\/g, '/').replace(/\/+$/, '') + '/' + folderName
-      const tree = fileItemsToTree(files)
-      return webViewMessageApi.call('writeWorkspaceFiles', {
-        basePath,
-        results: tree,
-        projectMode: false,
-      })
+      return p
     })
-    .then((writeRes: { error?: string }) => {
-      notifyProgress(totalFiles)
-      if (writeRes?.error) {
-        const writeErr = new Error(writeRes.error)
-        onError?.(writeErr)
-        throw writeErr
-      }
-      onSuccess?.(writeRes)
+
+  // 有缓存路径时先验证其是否仍然存在，不存在则重新弹出目录选择框
+  const resolveDir: Promise<string> = outputDir
+    ? webViewMessageApi
+        .call('checkPathExists', { path: outputDir })
+        .then((res: { exists?: boolean }) => (res?.exists ? outputDir : pickDir()))
+    : pickDir()
+
+  return resolveDir
+    .then((dirPath: string) => {
+      const basePath = dirPath.replace(/\\/g, '/').replace(/\/+$/, '') + '/' + folderName
+      const tree = fileItemsToTree(files)
+      return webViewMessageApi
+        .call('writeWorkspaceFiles', {
+          basePath,
+          results: tree,
+          projectMode: false,
+        })
+        .then((writeRes: { error?: string }) => {
+          notifyProgress(totalFiles)
+          if (writeRes?.error) {
+            const writeErr = new Error(writeRes.error)
+            onError?.(writeErr)
+            throw writeErr
+          }
+          onSuccess?.(writeRes)
+          // 返回本次使用的目录路径，供调用方缓存
+          return dirPath
+        })
     })
     .catch((err: unknown) => {
       onError?.(err instanceof Error ? err : new Error(String(err)))

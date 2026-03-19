@@ -1,6 +1,5 @@
 const vscode = require('vscode')
 const path = require('path')
-const { getInstance: getWebviewManager } = require('./manager/webviewManager')
 
 /**
  * 注册 URI Handler，使浏览器或外部可通过 vscode:// 链接唤起 Cursor/VSCode 并执行命令
@@ -21,7 +20,6 @@ function registerUriHandler(context) {
     handleUri(uri) {
       const pathName = (uri.path || '').replace(/^\/+/, '') || 'open'
       const query = new URLSearchParams(uri.query || '')
-      const webviewManager = getWebviewManager()
 
       if (pathName === 'open') {
         const filePathParam = query.get('path') || null
@@ -32,14 +30,25 @@ function registerUriHandler(context) {
             const absolutePath = decoded.startsWith(firstRoot)
               ? decoded
               : path.join(firstRoot, decoded)
-            webviewManager.setPendingFilePathFromUri(absolutePath)
+            // CustomEditor 模式：直接用 vscode.open 打开文件，VSCode 会自动使用 mybricks.editor
+            const uri = vscode.Uri.file(absolutePath)
+            vscode.commands.executeCommand('vscode.open', uri, { preview: false })
           } catch (_) {
-            webviewManager.setPendingFilePathFromUri(null)
+            vscode.window.showErrorMessage('无法打开指定的设计文件，请检查路径是否正确。')
           }
         } else {
-          webviewManager.setPendingFilePathFromUri(null)
+          // 无文件参数时，打开文件选择对话框
+          vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectMany: false,
+            filters: { 'MyBricks 设计文件': ['ui', 'mybricks'] },
+            title: '打开 MyBricks 设计文件',
+          }).then((uris) => {
+            if (uris && uris[0]) {
+              vscode.commands.executeCommand('vscode.open', uris[0], { preview: false })
+            }
+          })
         }
-        vscode.commands.executeCommand('mybricks.openIDE')
       }
     },
   }

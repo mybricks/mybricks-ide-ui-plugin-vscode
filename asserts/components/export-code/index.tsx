@@ -286,7 +286,7 @@ export default function ExportCode({ designerRef, sceneId, onClose, style, simpl
 
       <Form.Item style={{ marginBottom: 0 }} className='export-form-actions'>
         <Flex gap='small' justify='flex-end'>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={() => { setLoading(false); onClose?.() }}>取消</Button>
           <Button
             type='primary'
             disabled={!projectName}

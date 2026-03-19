@@ -27,10 +27,22 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onUri"
+    "onUri",
+    "onCustomEditor:mybricks.editor"
   ],
   "main": "./extension.js",
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "mybricks.editor",
+        "displayName": "MyBricks Editor",
+        "selector": [
+          { "filenamePattern": "*.ui" },
+          { "filenamePattern": "*.mybricks" }
+        ],
+        "priority": "default"
+      }
+    ],
     "commands": [
       {
         "command": "mybricks.openIDE",
