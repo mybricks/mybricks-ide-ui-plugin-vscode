@@ -1,7 +1,7 @@
 {
   "designer": {
     "name": "mybricks.SPADesigner",
-    "version": "3.9.916.t1"
+    "version": "3.9.917"
   },
   "aiComLib": {
     "name": "ailib",
@@ -11,5 +11,5 @@
     "name": "MyBricksPluginAI",
     "version": "1.0.2"
   },
-  "version": "1.0.4"
+  "version": "1.0.5"
 }
