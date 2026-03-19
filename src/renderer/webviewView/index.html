@@ -103,6 +103,51 @@
         font-style: italic;
         opacity: 0.7;
       }
+
+      /* 右键菜单 */
+      .context-menu {
+        position: fixed;
+        z-index: 9999;
+        background: var(--vscode-menu-background);
+        border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border));
+        border-radius: 3px;
+        padding: 2px 0;
+        min-width: 160px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        display: none;
+      }
+      .context-menu.visible {
+        display: block;
+      }
+      .context-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--vscode-menu-foreground);
+        white-space: nowrap;
+      }
+      .context-menu-item:hover {
+        background: var(--vscode-menu-selectionBackground);
+        color: var(--vscode-menu-selectionForeground);
+      }
+      .context-menu-item:hover svg {
+        color: var(--vscode-menu-selectionForeground);
+      }
+      .context-menu-item svg {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+        color: var(--vscode-icon-foreground);
+      }
+      .context-menu-separator {
+        height: 1px;
+        background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border));
+        margin: 2px 0;
+        opacity: 0.5;
+      }
     </style>
   </head>
   <body>
@@ -123,6 +168,30 @@
         <div class="empty-tip">加载中...</div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <div class="context-menu" id="context-menu">
+      <div class="context-menu-item" id="ctx-reveal">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M1.5 2.5h5l1.5 1.5h6.5v9.5H1.5z"/>
+        </svg>
+        在资源管理器中显示
+      </div>
+      <div class="context-menu-item" id="ctx-reveal-os">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M2 2h12v10H2zM2 9h12M5 9V12M11 9V12M5 12h6"/>
+        </svg>
+        在文件管理器中打开
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" id="ctx-remove">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 4l8 8M12 4l-8 8"/>
+        </svg>
+        从列表中移除
+      </div>
+    </div>
+
     <script>
       const vscode = acquireVsCodeApi()
       window.VS_CODE = vscode
@@ -147,6 +216,63 @@
             break
         }
       })
+
+      // ---- 右键菜单逻辑 ----
+      const contextMenu = document.getElementById('context-menu')
+      const ctxReveal = document.getElementById('ctx-reveal')
+      const ctxRevealOS = document.getElementById('ctx-reveal-os')
+      const ctxRemove = document.getElementById('ctx-remove')
+      let ctxFilePath = null
+
+      function showContextMenu(x, y, filePath) {
+        ctxFilePath = filePath
+        // 先显示再调整位置，确保能拿到尺寸
+        contextMenu.classList.add('visible')
+        const menuW = contextMenu.offsetWidth
+        const menuH = contextMenu.offsetHeight
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const left = x + menuW > vw ? vw - menuW - 4 : x
+        const top = y + menuH > vh ? vh - menuH - 4 : y
+        contextMenu.style.left = left + 'px'
+        contextMenu.style.top = top + 'px'
+      }
+
+      function hideContextMenu() {
+        contextMenu.classList.remove('visible')
+        ctxFilePath = null
+      }
+
+      ctxReveal.addEventListener('click', () => {
+        if (ctxFilePath) {
+          vscode.postMessage({ command: 'revealInExplorer', filePath: ctxFilePath })
+        }
+        hideContextMenu()
+      })
+
+      ctxRevealOS.addEventListener('click', () => {
+        if (ctxFilePath) {
+          vscode.postMessage({ command: 'revealInOS', filePath: ctxFilePath })
+        }
+        hideContextMenu()
+      })
+
+      ctxRemove.addEventListener('click', () => {
+        if (ctxFilePath) {
+          vscode.postMessage({ command: 'removeRecentFile', filePath: ctxFilePath })
+        }
+        hideContextMenu()
+      })
+
+      // 点击其他区域关闭菜单
+      document.addEventListener('click', (e) => {
+        if (!contextMenu.contains(e.target)) {
+          hideContextMenu()
+        }
+      })
+
+      // 滚动时也关闭
+      document.addEventListener('scroll', hideContextMenu, true)
 
       function renderRecentFiles(files) {
         const container = document.getElementById('recent-list')
@@ -180,6 +306,11 @@
               command: 'openRecentFile', 
               filePath: filePath 
             })
+          })
+
+          item.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            showContextMenu(e.clientX, e.clientY, filePath)
           })
           
           container.appendChild(item)

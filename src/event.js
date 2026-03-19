@@ -74,7 +74,7 @@ function handleSidebarMessage(webviewView, context) {
           break
 
         // 打开最近文件
-        case 'openRecentFile':
+        case 'openRecentFile': {
           const filePath = message.filePath
           if (fs.existsSync(filePath)) {
             // 直接用 vscode.open，VSCode 会自动使用 mybricks.editor CustomEditor
@@ -85,6 +85,38 @@ function handleSidebarMessage(webviewView, context) {
             vscode.window.showErrorMessage(`文件 ${filePath} 不存在，已从最近列表中移除`)
           }
           break
+        }
+
+        // 在 VSCode 资源管理器中定位文件
+        case 'revealInExplorer': {
+          const filePath = message.filePath
+          if (fs.existsSync(filePath)) {
+            vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(filePath))
+          } else {
+            webviewManager.removeRecentFile(filePath)
+            vscode.window.showErrorMessage(`文件 ${filePath} 不存在，已从最近列表中移除`)
+          }
+          break
+        }
+
+        // 在系统文件管理器中打开
+        case 'revealInOS': {
+          const filePath = message.filePath
+          if (fs.existsSync(filePath)) {
+            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(filePath))
+          } else {
+            webviewManager.removeRecentFile(filePath)
+            vscode.window.showErrorMessage(`文件 ${filePath} 不存在，已从最近列表中移除`)
+          }
+          break
+        }
+
+        // 从最近列表中移除文件
+        case 'removeRecentFile': {
+          const filePath = message.filePath
+          webviewManager.removeRecentFile(filePath)
+          break
+        }
       }
     },
     undefined,

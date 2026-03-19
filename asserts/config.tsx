@@ -6,6 +6,7 @@ import React from 'react'
 import { createAIPlugin, installAIService } from './ai/mcp'
 import ExportCode from './components/export-code'
 import TokenConfig from './components/token-config'
+import FilePath from './components/file-path'
 import { loadManifest } from './manifestLoader'
 
 import getAiPlugin from './plugins/get-ai-plugin'
@@ -220,17 +221,22 @@ async function config({ designerRef, aiChannel }: { designerRef: React.MutableRe
     editView: {
       items({}, cate0, cate1, cate2) {
         cate0.title = `项目`
-        if (aiChannel === 'mybricks') {
-          cate0.items = [
-            {
-              title: 'AI请求凭证',
-              type: 'editorRender',
-              options: {
-                render: () => <TokenConfig />
-              }
+        cate0.items = [
+          {
+            title: '文件路径',
+            type: 'editorRender',
+            options: {
+              render: () => <FilePath />
             }
-          ]
-        }
+          },
+          ...(aiChannel === 'mybricks' ? [{
+            title: 'AI请求凭证',
+            type: 'editorRender',
+            options: {
+              render: () => <TokenConfig />
+            }
+          }] : [])
+        ]
       },
     },
   }

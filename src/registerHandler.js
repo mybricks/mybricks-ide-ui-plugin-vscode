@@ -19,6 +19,15 @@ const { wrapResultsAsProject } = require('../utils/projectModeOutput')
  * @param {vscode.ExtensionContext} context - 扩展上下文
  */
 function registerHandlers(messageApiInstance, context) {
+  // 在系统文件管理器中定位文件（macOS: Finder，Windows: 资源管理器）
+  messageApiInstance.registerHandler('revealInOS', async (data) => {
+    const filePath = data?.filePath
+    if (!filePath) return
+    if (fs.existsSync(filePath)) {
+      await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(filePath))
+    }
+  })
+
   // 读取「是否开启 MCP」配置（供前端与扩展内统一读取和监听）
   messageApiInstance.registerHandler('getMCPEnabled', () => {
     return vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
