@@ -81,6 +81,9 @@ class MyBricksEditorProvider {
     vscode.commands.executeCommand('workbench.action.closeSidebar')
     vscode.commands.executeCommand('workbench.action.closePanel')
 
+    // 打开文件时关闭 VSCode 面包屑导航
+    vscode.workspace.getConfiguration().update('breadcrumbs.enabled', false, vscode.ConfigurationTarget.Global)
+
     // 前端通知内容变更 → fire onDidChangeCustomDocument → VSCode 标签显示脏圆点
     messageApiInstance.registerHandler('notifyContentChanged', () => {
       markFileDirty(filePath)
@@ -95,6 +98,10 @@ class MyBricksEditorProvider {
       this.documentMap.delete(filePath)
       webviewManager.unregisterPanel(filePath)
       messageApiInstance.dispose()
+      // 只有最后一个 .ui 面板关闭时，才恢复面包屑导航
+      if (webviewManager.panelMap.size === 0) {
+        vscode.workspace.getConfiguration().update('breadcrumbs.enabled', true, vscode.ConfigurationTarget.Global)
+      }
     })
 
     webviewPanel.onDidChangeViewState((e) => {
