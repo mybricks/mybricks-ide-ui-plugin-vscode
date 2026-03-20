@@ -1,8 +1,31 @@
 const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
+const crypto = require('crypto')
 const { getWorkspaceFolder } = require('./utils')
 const { getPreferredExtension } = require('../src/fileExtension')
+
+/**
+ * 生成一个符合 RFC 4122 v4 规范的唯一 ID
+ * @returns {string}
+ */
+function generateFileId() {
+  return crypto.randomBytes(12).toString('base64url')
+}
+
+/**
+ * 确保 content 对象中存在合法的 meta.fileId，若不存在则返回补全后的副本（不修改原对象）
+ * @param {Object} content
+ * @returns {{ content: Object, added: boolean }} added=true 表示本次新生成了 fileId
+ */
+function ensureMetaFileId(content) {
+  if (content && typeof content === 'object' && typeof content.meta?.fileId === 'string' && content.meta.fileId.trim()) {
+    return { content, added: false }
+  }
+  const existingMeta = (content && typeof content.meta === 'object' && content.meta !== null) ? content.meta : {}
+  const newContent = { ...content, meta: { ...existingMeta, fileId: generateFileId() } }
+  return { content: newContent, added: true }
+}
 
 /**
  * 获取 MyBricks 项目文件内容及路径（用于保存时判断是否直接写回当前文件）
@@ -17,7 +40,14 @@ function getFileContent(context, filePath = null) {
       const raw = fs.readFileSync(filePath, 'utf-8').trim()
       const mtime = fs.statSync(filePath).mtimeMs
       if (!raw) return { content: null, path: filePath, mtime }
-      return { content: JSON.parse(raw), path: filePath, mtime }
+      let parsed = JSON.parse(raw)
+      // 如果文件中没有 meta.fileId，补全后写回磁盘
+      const { content: patched, added } = ensureMetaFileId(parsed)
+      if (added) {
+        fs.writeFileSync(filePath, JSON.stringify(patched, null, 2), 'utf-8')
+        parsed = patched
+      }
+      return { content: parsed, path: filePath, mtime }
     }
 
     // 没有指定文件路径，返回 null（新建项目）
@@ -86,8 +116,10 @@ async function saveProject(context, saveContent, currentFilePath) {
 
     const dir = path.dirname(savePath)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(savePath, JSON.stringify(saveContent, null, 2), 'utf-8')
-    vscode.window.showInformationMessage(`项目已保存: ${path.basename(savePath)}`)
+    // 确保 meta.fileId 存在，若无则生成
+    const { content: contentToSave } = ensureMetaFileId(saveContent)
+    fs.writeFileSync(savePath, JSON.stringify(contentToSave, null, 2), 'utf-8')
+    vscode.window.showInformationMessage(`文件已保存: ${path.basename(savePath)}`)
     return { success: true, path: savePath }
   } catch (error) {
     vscode.window.showErrorMessage(`保存项目失败: ${error.message}`)

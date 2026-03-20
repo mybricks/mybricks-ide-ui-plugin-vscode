@@ -32,7 +32,7 @@ async function config({ designerRef, aiChannel }: { designerRef: React.MutableRe
     plugins: [
       // createAIPlugin(),
       getAiPlugin({
-        key: fileResult?.path ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        key: fileResult?.content?.meta?.fileId ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         useInfra: aiChannel === 'infra',
         getToken: () => vsCodeMessage.call('getAIToken').then((t: string) => t ?? '').catch(() => ''),
         onDownload: (params) =>

@@ -112,6 +112,9 @@ export default function App() {
   // 当前打开的文件名
   const [currentFileName, setCurrentFileName] = useState<string>('')
 
+  // 当前文件的唯一 ID（meta.fileId）
+  const [fileId, setFileId] = useState<string | null>(null)
+
   // 从文件路径中提取文件名（不含后缀）
   const extractFileName = useCallback((filePath: string) => {
     const name = filePath.split(/[/\\]/).pop() ?? filePath
@@ -140,6 +143,9 @@ export default function App() {
       if (fileResult?.mtime) {
         setLastSavedAt(new Date(fileResult.mtime))
       }
+      // 读取文件唯一 ID
+      const fid: string | undefined = fileResult?.content?.meta?.fileId
+      if (fid) setFileId(fid)
     }).catch(() => {})
   }, [])
 
@@ -436,9 +442,15 @@ export default function App() {
                       </div>
                     )}
                     {pluginAIVersion && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: aiChannel ? 5 : 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (fileId || aiChannel) ? 5 : 0 }}>
                         <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 插件</span>
                         <span style={{ color: '#374151', fontSize: 12 }}>v{pluginAIVersion}</span>
+                      </div>
+                    )}
+                    {fileId && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: aiChannel ? 5 : 0 }}>
+                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>文件 ID</span>
+                        <span style={{ color: '#374151', fontSize: 11, fontFamily: 'monospace' }}>{fileId}</span>
                       </div>
                     )}
                     {aiChannel && (
