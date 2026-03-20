@@ -96,6 +96,9 @@ export default function App() {
   // save 函数的 ref（供防抖回调使用，避免闭包捕获旧值）
   const saveRef = useRef<(() => void) | null>(null)
 
+  // 自动保存防抖 timer
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // 动态加载的 SPADesigner 组件（manifest 加载完才有值）
   const [SPADesigner, setSPADesigner] = useState<any>(null)
 
@@ -279,36 +282,28 @@ export default function App() {
     myBricksAPIRefGetter: () => myBricksAPIRef,
   })
 
-  // 标记已编辑：触发保存按钮 * 号，并通知 extension 文档已变脏（VSCode 标签圆点）
+  // 标记已编辑：通知 extension 文档已变脏（VSCode 标签圆点），并触发防抖自动保存
   const markEdited = useCallback(() => {
-    setChanged((c) => c + 1)
+    console.log('edited');
+    setChanged((c) => c + 1);
 
     // 通知 extension 内容已变更，由 VSCode CustomEditorProvider 驱动标签脏状态
     vsCodeMessage?.call('notifyContentChanged', {}).catch(() => {})
 
-    // 自动保存已禁用：改为依赖 Ctrl+S（VSCode 原生保存机制）
-    // if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-    // autoSaveTimerRef.current = setTimeout(async () => {
-    //   if (!vsCodeMessage?.call) return
-    //   const fileResult = await vsCodeMessage.call('getFileContent').catch(() => null)
-    //   const currentFilePath: string | null = fileResult?.path ?? null
-    //   if (currentFilePath) {
-    //     saveRef.current?.()
-    //   } else {
-    //     vsCodeMessage.call('notifyUnnamedFileDirty').catch(() => {})
-    //   }
-    // }, 1000)
+    // 防抖自动保存（1s 内无新编辑则静默保存，不弹任何提示，仅更新右上角保存时间）
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveRef.current?.()
+    }, 1000)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     ;(window as any)._mybricksOnEdit_ = markEdited
-
-    console.log('_mybricksOnEdit_', (window as any)._mybricksOnEdit_)
   }, [markEdited])
 
   // 保存：直接保存 dump() 的结果到当前设计文件（.ui / .mybricks）
-  // silent=true 时自动保存静默执行，不弹成功/失败提示
-  const save = useCallback(async (silent = false) => {
+  // silent=true 时前端静默（不弹 antd 消息）；backendSilent=true 时后端也静默（不弹 VSCode 右下角提示）
+  const save = useCallback(async (silent = false, backendSilent = false) => {
     const designer = designerRef.current
     if (!designer) {
       if (!silent) message.error('设计器未初始化')
@@ -333,7 +328,7 @@ export default function App() {
       const currentFilePath = fileResult?.path ?? null
 
       // 保存 JSON 数据
-      const res = await vsCodeMessage.call('saveProject', { saveContent: json, currentFilePath })
+      const res = await vsCodeMessage.call('saveProject', { saveContent: json, currentFilePath, silent: backendSilent })
       if (res?.success) {
         setChanged(0)
         setLastSavedAt(new Date())
@@ -355,14 +350,14 @@ export default function App() {
 
   // 保持 saveRef 始终指向最新的 save（供防抖回调调用）
   useEffect(() => {
-    saveRef.current = () => save(true)
+    saveRef.current = () => save(true, true)
   }, [save])
 
-  // Ctrl+S 快捷键：extension 发送 triggerSave 通知时执行保存
+  // Ctrl+S 快捷键：extension 发送 triggerSave 通知时执行保存（不弹 antd 消息，由 VSCode 右下角通知提示）
   useEffect(() => {
     if (!vsCodeMessage?.on) return
     const unsub = vsCodeMessage.on('triggerSave', () => {
-      save(true)
+      save(true, false)
     })
     return () => unsub?.()
   }, [save])

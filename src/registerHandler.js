@@ -134,7 +134,8 @@ function registerHandlers(messageApiInstance, context) {
     const webviewManager = getWebviewManager()
     const saveContent = data?.saveContent != null ? data.saveContent : data
     let currentFilePath = data?.currentFilePath ?? webviewManager.getCurrentFilePath()
-    const res = await saveProject(context, saveContent, currentFilePath)
+    const silent = data?.silent === true
+    const res = await saveProject(context, saveContent, currentFilePath, silent)
     // 新建文件另存为成功后：更新当前文件路径、面板标题，并加入最近打开列表
     if (res.success && res.path && (!currentFilePath || !fs.existsSync(currentFilePath))) {
       webviewManager.setCurrentFilePath(res.path)

@@ -15,7 +15,7 @@ export type GetAiPluginOptions = {
 
 export default ({ key, useInfra = true, getToken, onDownload }: GetAiPluginOptions) => {
   const PluginAI = (window as any).MyBricksPluginAI || {}
-  const { default: AIPlugin, createMyBricksAIRequest, createInfraAIRequest, fileFormat } = PluginAI
+  const { default: AIPlugin, createMyBricksAIRequest, createInfraAIRequest, createInfraAIOnUpload, fileFormat } = PluginAI
 
   if (!AIPlugin) {
     console.warn('[MyBricks] window.MyBricksPluginAI is not loaded. Ensure plugin-ai is loaded via manifest.')
@@ -23,7 +23,7 @@ export default ({ key, useInfra = true, getToken, onDownload }: GetAiPluginOptio
   }
 
   const requestMybricks = createMyBricksAIRequest({ getToken })
-  const requestInfra = createInfraAIRequest()
+  const requestInfra = createInfraAIRequest();
   return AIPlugin({
     isMutiCanvas: false,
     prompts: {
@@ -49,6 +49,7 @@ export default ({ key, useInfra = true, getToken, onDownload }: GetAiPluginOptio
         }
       }
     },
+    onUpload: useInfra ? createInfraAIOnUpload() : undefined,
     onRequest: (params) => {
       return useInfra ? requestInfra(params) : requestMybricks(params)
     },
