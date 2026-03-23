@@ -32,12 +32,12 @@ export default function TokenConfig() {
 
   const statusText = hasToken === null ? '加载中…' : (hasToken ? '已配置' : '未配置')
   const actionText = hasToken ? '查看配置' : '去配置'
-  const statusStyle = hasToken === true ? { color: '#52c41a' } : (hasToken === false ? { color: '#faad14' } : { color: 'rgba(0,0,0,0.65)' })
+  const statusStyle = hasToken === true ? { color: '#52c41a' } : (hasToken === false ? { color: '#faad14' } : { color: 'var(--mybricks-text-color-main)' })
 
   return (
     <>
       <div style={{
-        backgroundColor: '#f5f7fa',
+        backgroundColor: 'var(--mybricks-bg-color-hover)',
         border: '1px solid #e8e8e8',
         borderRadius: 4,
         padding: '6px 8px',
@@ -59,7 +59,7 @@ export default function TokenConfig() {
           </span>
         </div>
       </div>
-      <div style={{ color: '#999', fontSize: 10, lineHeight: '14px', marginTop: 6 }}>
+      <div style={{ color: 'var(--mybricks-text-color-main)', fontSize: 10, lineHeight: '14px', marginTop: 6, opacity: 0.45 }}>
         只有配置了请求凭证才可以使用AI
       </div>
     </>

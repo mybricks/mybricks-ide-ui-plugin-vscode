@@ -36,7 +36,7 @@ export default function FilePath() {
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && openInFinder()}
       style={{
-        backgroundColor: '#f5f7fa',
+        backgroundColor: 'var(--mybricks-bg-color-hover)',
         border: '1px solid #e8e8e8',
         borderRadius: 4,
         padding: '6px 8px',
@@ -50,7 +50,7 @@ export default function FilePath() {
     >
       <div style={{
         fontWeight: 500,
-        color: 'rgba(0,0,0,0.75)',
+        color: 'var(--mybricks-text-color-main)',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
@@ -58,7 +58,8 @@ export default function FilePath() {
         {fileName}
       </div>
       <div style={{
-        color: '#999',
+        color: 'var(--mybricks-text-color-main)',
+        opacity: 0.45,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',

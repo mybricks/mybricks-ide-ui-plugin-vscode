@@ -1,15 +1,15 @@
 {
   "designer": {
     "name": "mybricks.SPADesigner",
-    "version": "3.9.919.t1"
+    "version": "3.9.920"
   },
   "aiComLib": {
     "name": "ailib",
-    "url": "https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/comlib/1.0.13/edit.js"
+    "url": "https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/comlib/1.0.14/edit.js"
   },
   "pluginAI": {
     "name": "MyBricksPluginAI",
-    "version": "1.0.6"
+    "version": "1.0.7"
   },
-  "version": "1.0.12"
+  "version": "1.0.13"
 }

@@ -47,13 +47,13 @@ const ToolbarContext = createContext<ToolbarContextValue>({ lastSavedAt: null })
 /** 展示最后保存时间，通过 ToolbarContext 感知更新（绕过 SPADesigner 对 toolbar 的缓存） */
 function SaveTimeDisplay() {
   const { lastSavedAt: d } = useContext(ToolbarContext)
-  if (!d) return <span style={{ fontSize: 11, color: '#888', userSelect: 'none', letterSpacing: '0.01em' }}>尚未保存</span>
+  if (!d) return <span style={{ fontSize: 11, color: 'var(--mybricks-text-color-main)', opacity: 0.45, userSelect: 'none', letterSpacing: '0.01em' }}>尚未保存</span>
   const now = new Date()
   const isToday = d.toDateString() === now.toDateString()
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   const text = `保存于 ${isToday ? '' : `${d.getMonth() + 1}/${d.getDate()} `}${hh}:${mm}`
-  return <span style={{ fontSize: 11, color: '#888', userSelect: 'none', letterSpacing: '0.01em' }}>{text}</span>
+  return <span style={{ fontSize: 11, color: 'var(--mybricks-text-color-main)', opacity: 0.45, userSelect: 'none', letterSpacing: '0.01em' }}>{text}</span>
 }
 
 /**
@@ -156,7 +156,6 @@ export default function App() {
   useEffect(() => {
     loadManifest()
       .then((manifest) => {
-        console.log('manifest', manifest)
         // 主版本（顶层 version）
         if (manifest?.version) {
           setAppVersion(manifest.version)
@@ -537,7 +536,7 @@ export default function App() {
             <SPADesigner
               config={config.current}
               ref={designerRef}
-              titlebar={() => titleBar}
+              // titlebar={() => titleBar}
               toolbar={() => toolbarBtns}
               onLoad={onDesignerLoad}
               onMessage={onMessage}
@@ -551,7 +550,8 @@ export default function App() {
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
-              color: 'var(--vscode-descriptionForeground)',
+              backgroundColor: 'var(--vscode-editor-background)',
+              color: 'var(--vscode-foreground)',
               fontSize: 13,
             }}>
               获取设计器中...
