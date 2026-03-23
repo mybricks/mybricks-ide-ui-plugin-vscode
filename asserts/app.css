@@ -55,6 +55,8 @@ body {
   z-index: 107;
   background-color: var(--mybricks-bg-color-main);
 }
+
+.toolbar-title {
   font-weight: bold;
   font-size: 14px;
   margin-left: 10px;

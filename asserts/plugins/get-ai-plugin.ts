@@ -11,9 +11,14 @@ export type GetAiPluginOptions = {
   getToken: () => Promise<string>
   /** VSCode 下由 extension 弹窗选择保存路径并写入文件；支持异步 */
   onDownload?: (params: OnDownloadParams) => void | Promise<void>
+  /** 三方库 + 主题配置（从 CDN 获取的 codingConfig） */
+  codingConfig?: {
+    themes?: Array<{ id: string; name: string; vars: Array<{ propertyName: string; value: string; title: string; type: string }> }>
+    availableLibraries?: Array<{ name: string; version: string; readme: string; urls: string[]; library: string }>
+  }
 }
 
-export default ({ key, useInfra = true, getToken, onDownload }: GetAiPluginOptions) => {
+export default ({ key, useInfra = true, getToken, onDownload, codingConfig }: GetAiPluginOptions) => {
   const PluginAI = (window as any).MyBricksPluginAI || {}
   const { default: AIPlugin, createMyBricksAIRequest, createInfraAIRequest, createInfraAIOnUpload, fileFormat } = PluginAI
 
@@ -54,7 +59,8 @@ export default ({ key, useInfra = true, getToken, onDownload }: GetAiPluginOptio
       return useInfra ? requestInfra(params) : requestMybricks(params)
     },
     onDownload,
-    codingMode: true
+    codingMode: true,
+    codingConfig,
   })
 }
 

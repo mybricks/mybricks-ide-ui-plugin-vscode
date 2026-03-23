@@ -38,7 +38,7 @@ export default function TokenConfig() {
     <>
       <div style={{
         backgroundColor: 'var(--mybricks-bg-color-hover)',
-        border: '1px solid #e8e8e8',
+        // border: '1px solid #e8e8e8',
         borderRadius: 4,
         padding: '6px 8px',
         fontSize: 10,

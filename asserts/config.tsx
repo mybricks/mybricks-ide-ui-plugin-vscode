@@ -11,13 +11,18 @@ import { loadManifest } from './manifestLoader'
 
 import getAiPlugin from './plugins/get-ai-plugin'
 
+type CodingConfigData = {
+  themes?: Array<{ id: string; name: string; vars: Array<{ propertyName: string; value: string; title: string; type: string }> }>
+  availableLibraries?: Array<{ name: string; version: string; readme: string; urls: string[]; library: string }>
+}
+
 const vsCodeMessage = (window as any).webViewMessageApi
 
 /**
  * 生成设计器配置
  * MCP 不默认加载（不阻塞读取 setting），仅安装 AI Service 供插件使用；是否启用由 useMCP 监听 setting 后设置。
  */
-async function config({ designerRef, aiChannel }: { designerRef: React.MutableRefObject<any>, aiChannel: 'infra' | 'mybricks' }) {
+async function config({ designerRef, aiChannel, codingConfig }: { designerRef: React.MutableRefObject<any>, aiChannel: 'infra' | 'mybricks', codingConfig?: CodingConfigData | null }) {
   installAIService()
 
   const fileResult = await vsCodeMessage.call('getFileContent')
@@ -37,6 +42,7 @@ async function config({ designerRef, aiChannel }: { designerRef: React.MutableRe
         getToken: () => vsCodeMessage.call('getAIToken').then((t: string) => t ?? '').catch(() => ''),
         onDownload: (params) =>
           vsCodeMessage.call('downloadFile', { name: params.name, content: params.content }),
+        codingConfig: codingConfig ?? undefined,
       }),
       //servicePlugin(), // HTTP 接口连接器
     ],
@@ -177,6 +183,10 @@ async function config({ designerRef, aiChannel }: { designerRef: React.MutableRe
         css: [
           'https://my.mybricks.world/mybricks-app-mpsite/public/brickd-mobile/0.0.53/index.css',
           'https://my.mybricks.world/mybricks-app-mpsite/public/edit-reset.css',
+          // 从 codingConfig 注入三方库样式文件
+          ...(codingConfig?.availableLibraries ?? []).flatMap((lib) =>
+            (lib.urls ?? []).filter((url) => url.endsWith('.css') || url.endsWith('.less'))
+          ),
         ],
       },
     },

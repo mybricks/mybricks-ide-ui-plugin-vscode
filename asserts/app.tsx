@@ -69,6 +69,20 @@ function loadScript(url: string): Promise<void> {
   })
 }
 
+type ThemeVar = { propertyName: string; value: string; title: string; type: string }
+type Theme = { id: string; name: string; vars: ThemeVar[] }
+type AvailableLibrary = { name: string; version: string; readme: string; urls: string[]; library: string }
+type CodingConfigData = { themes?: Theme[]; availableLibraries?: AvailableLibrary[] }
+
+/**
+ * 从 CDN 获取 codingConfig（三方库 + 主题配置）
+ * 生产时可替换为真实 CDN URL
+ */
+async function fetchCodingConfig(): Promise<CodingConfigData | null> {
+  // TODO: 替换为真实 CDN 地址，例如 manifest.codingConfig.url
+  throw new Error('[codingConfig] CDN 地址尚未配置，跳过三方库加载')
+}
+
 /**
  * 主应用组件
  */
@@ -112,6 +126,9 @@ export default function App() {
   const [pluginAIVersion, setPluginAIVersion] = useState<string | null>(null)
   const config = useRef<any>(null)
 
+  // codingConfig：三方库 + 主题配置（从 CDN 获取，manifest 加载期间并行拉取）
+  const codingConfigRef = useRef<CodingConfigData | null>(null)
+
   // 当前打开的文件名
   const [currentFileName, setCurrentFileName] = useState<string>('')
 
@@ -153,9 +170,19 @@ export default function App() {
   }, [])
 
   // 1. 启动时 fetch manifest → 动态加载 designer-spa 和 plugin-ai
+  //    同时并行获取 codingConfig，在加载设计器配置之前完成三方库的 UMD 加载
   useEffect(() => {
-    loadManifest()
-      .then((manifest) => {
+    // manifest 加载和 codingConfig 获取并行执行
+    Promise.all([
+      loadManifest(),
+      fetchCodingConfig().catch((err) => {
+        console.warn('[codingConfig]', err?.message ?? err)
+        return null
+      }),
+    ])
+      .then(([manifest, codingConfig]) => {
+        // 存储 codingConfig 供后续 getDesignerConfig 使用
+        codingConfigRef.current = codingConfig
         // 主版本（顶层 version）
         if (manifest?.version) {
           setAppVersion(manifest.version)
@@ -194,6 +221,20 @@ export default function App() {
           scripts.push(loadScript(pluginAIUrl))
         } else {
           console.warn('[manifest] pluginAI.url 和 version 均为空，跳过 plugin-ai 加载')
+        }
+
+        // 加载 codingConfig 中的三方库 UMD 文件（JS），需在加载设计器配置前完成
+        const libs = codingConfig?.availableLibraries ?? []
+        for (const lib of libs) {
+          for (const url of lib.urls ?? []) {
+            if (/\.js(\?|$)/i.test(url) || (!url.endsWith('.css') && !url.endsWith('.less'))) {
+              scripts.push(
+                loadScript(url).catch((err) => {
+                  console.warn(`[codingConfig] 三方库加载失败: ${url}`, err)
+                })
+              )
+            }
+          }
         }
 
         return Promise.all(scripts)
@@ -236,7 +277,7 @@ export default function App() {
   // 2. SPADesigner 就绪后，初始化设计器 config
   useEffect(() => {
     if (!SPADesigner || !aiChannel) return
-    getDesignerConfig({ designerRef, aiChannel }).then((_config) => {
+    getDesignerConfig({ designerRef, aiChannel, codingConfig: codingConfigRef.current }).then((_config) => {
       setInitSuccess(true)
       config.current = _config
     })
@@ -384,7 +425,7 @@ export default function App() {
   // toolbar 传给 SPADesigner 的只是一个空容器，内容通过 createPortal 从 App 树注入
   // 这样 SPADesigner 缓存 toolbar 也无所谓，portal 内容始终随 App state 更新
   const toolbarBtns = useMemo(() => (
-    <div id='mybricks-toolbar-root' style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: 8, paddingLeft: 10, paddingRight: 10, display: 'flex' }} />
+    <div id='mybricks-toolbar-root' style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center',  paddingLeft: 10, paddingRight: 10, display: 'flex' }} />
   ), [])
 
   // SPADesigner onLoad 触发时 toolbar DOM 已渲染完毕，此时挂载 portal
