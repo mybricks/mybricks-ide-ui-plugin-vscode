@@ -84,7 +84,7 @@ export default function ExportCode({ designerRef, sceneId, onClose, style, simpl
   )
 
   const onSelectDir = useCallback(() => {
-    vsCodeMessage?.call('selectExportDir').then((res: { path?: string }) => {
+    vsCodeMessage?.call('selectExportDir', {}, { timeout: 0 }).then((res: { path?: string }) => {
       if (res?.path !== undefined) {
         form.setFieldValue('exportDir', res.path)
         saveToStorage({ exportDir: res.path })

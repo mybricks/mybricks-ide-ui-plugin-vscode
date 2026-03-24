@@ -116,7 +116,7 @@ export function exportCodeToVSCode(
   notifyProgress(0)
 
   const pickDir = () =>
-    webViewMessageApi.call('selectExportDir').then((res: { path?: string }) => {
+    webViewMessageApi.call('selectExportDir', {}, { timeout: 0 }).then((res: { path?: string }) => {
       const p = res?.path
       if (p == null || p === '') {
         const cancelErr = new Error('用户取消选择目录')

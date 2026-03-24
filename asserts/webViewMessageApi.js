@@ -195,15 +195,16 @@ class WebViewMessageAPI {
         timestamp: Date.now(),
       })
 
-      const timeoutId = setTimeout(() => {
-        if (this.pendingCallbacks.has(id)) {
-          this._cleanupCallback(id)
-          reject(new Error(`调用 "${method}" 超时 (${opts.timeout}ms)`))
-        }
-      }, opts.timeout)
-
       const callback = this.pendingCallbacks.get(id)
-      callback.timeoutId = timeoutId
+      if (typeof opts.timeout === 'number' && opts.timeout > 0) {
+        const timeoutId = setTimeout(() => {
+          if (this.pendingCallbacks.has(id)) {
+            this._cleanupCallback(id)
+            reject(new Error(`调用 "${method}" 超时 (${opts.timeout}ms)`))
+          }
+        }, opts.timeout)
+        callback.timeoutId = timeoutId
+      }
     })
   }
 
