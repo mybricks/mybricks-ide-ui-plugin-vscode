@@ -53,7 +53,7 @@ function SaveTimeDisplay() {
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   const text = `保存于 ${isToday ? '' : `${d.getMonth() + 1}/${d.getDate()} `}${hh}:${mm}`
-  return <span style={{ fontSize: 11, color: 'var(--mybricks-text-color-main)', opacity: 0.45, userSelect: 'none', letterSpacing: '0.01em' }}>{text}</span>
+  return <span style={{ fontSize: 11, color: 'var(--mybricks-text-color-main)', opacity: 0.45, userSelect: 'none', letterSpacing: '0.01em', fontStyle: 'italic' }}>{text}</span>
 }
 
 /**
@@ -425,7 +425,7 @@ export default function App() {
   // toolbar 传给 SPADesigner 的只是一个空容器，内容通过 createPortal 从 App 树注入
   // 这样 SPADesigner 缓存 toolbar 也无所谓，portal 内容始终随 App state 更新
   const toolbarBtns = useMemo(() => (
-    <div id='mybricks-toolbar-root' style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center',  paddingLeft: 10, paddingRight: 10, display: 'flex' }} />
+    <div id='mybricks-toolbar-root' style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center',  paddingLeft: 12, paddingRight: 15, display: 'flex' }} />
   ), [])
 
   // SPADesigner onLoad 触发时 toolbar DOM 已渲染完毕，此时挂载 portal
