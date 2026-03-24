@@ -62,7 +62,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
           return []
         }
         console.log('>>> aiComLibUrl:', aiComLibUrl)
-        return [aiComLibUrl]
+        return ['http://localhost:20000/comlib.js']
       }).catch((err) => {
         console.error('[comLibLoader] 获取 manifest 失败:', err)
         return []

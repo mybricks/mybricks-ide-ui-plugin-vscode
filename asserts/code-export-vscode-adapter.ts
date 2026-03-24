@@ -161,7 +161,30 @@ export function exportCodeToVSCode(
     })
 }
 
+/**
+ * 弹出目录选择框，返回用户选择的文件夹路径 Promise<string>
+ * 用户取消时 Promise reject
+ */
+export function selectFolderPath(): Promise<string> {
+  const webViewMessageApi = getWebViewMessageApi()
+  if (!webViewMessageApi || typeof webViewMessageApi.call !== 'function') {
+    return Promise.reject(
+      new Error('当前环境不支持目录选择，请确保在 MyBricks VS Code 扩展的 Webview 中运行')
+    )
+  }
+  return webViewMessageApi
+    .call('selectExportDir', {}, { timeout: 0 })
+    .then((res: { path?: string }) => {
+      const p = res?.path
+      if (p == null || p === '') {
+        throw new Error('用户取消选择目录')
+      }
+      return p
+    })
+}
+
 // 挂到 window，供 comlib 的 vscode adapter 等使用
 if (typeof window !== 'undefined') {
   (window as any).exportCodeToVSCode = exportCodeToVSCode
+  ;(window as any).selectFolderPath = selectFolderPath
 }
