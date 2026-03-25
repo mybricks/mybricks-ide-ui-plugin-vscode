@@ -1,5 +1,7 @@
 const vscode = require('vscode')
+const path = require('path')
 const { WebviewView } = require('./renderer')
+const { PROTECTED_DIRS } = require('../utils/constants')
 const { runInit } = require('./init')
 const {
   getServerUrl,
@@ -30,6 +32,58 @@ function registerSubscriptions(context) {
       if (uri) {
         await vscode.commands.executeCommand('vscode.open', uri, { preview: false })
       }
+    }
+  )
+
+  // 注册命令：右键文件夹"新建 .ui 文件"
+  const newUIFileCommand = vscode.commands.registerCommand(
+    'mybricks.newUIFile',
+    async (uri) => {
+      const folderUri = uri?.fsPath ? uri : vscode.workspace.workspaceFolders?.[0]?.uri
+      if (!folderUri) {
+        vscode.window.showErrorMessage('无法确定目标文件夹')
+        return
+      }
+
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath
+      if (workspaceRoot) {
+        const folderPath = folderUri.fsPath
+        if (!folderPath.startsWith(workspaceRoot)) {
+          vscode.window.showErrorMessage('目标文件夹超出工作区范围')
+          return
+        }
+        const relativeParts = path.relative(workspaceRoot, folderPath).split(path.sep)
+        if (relativeParts.some((seg) => PROTECTED_DIRS.includes(seg))) {
+          vscode.window.showErrorMessage('不允许在 node_modules、.git 等受保护目录中创建文件')
+          return
+        }
+      }
+
+      const input = await vscode.window.showInputBox({
+        prompt: '请输入文件名（无需填写后缀）',
+        placeHolder: 'untitled',
+        validateInput: (value) => {
+          if (!value || !value.trim()) return '文件名不能为空'
+          if (/[/\\:*?"<>|]/.test(value)) return '文件名包含非法字符'
+          return null
+        },
+      })
+
+      if (input === undefined) return
+
+      const fileName = input.trim().replace(/\.ui$/, '') + '.ui'
+      const newFileUri = vscode.Uri.joinPath(folderUri, fileName)
+
+      try {
+        await vscode.workspace.fs.stat(newFileUri)
+        vscode.window.showErrorMessage(`文件 ${fileName} 已存在`)
+        return
+      } catch {
+        // 文件不存在，继续创建
+      }
+
+      await vscode.workspace.fs.writeFile(newFileUri, new Uint8Array())
+      await vscode.commands.executeCommand('vscode.open', newFileUri, { preview: false })
     }
   )
 
@@ -88,6 +142,7 @@ function registerSubscriptions(context) {
 
   // 将所有订阅添加到 context.subscriptions
   context.subscriptions.push(openFileCommand)
+  context.subscriptions.push(newUIFileCommand)
   context.subscriptions.push(initCommand)
   context.subscriptions.push(enableMCPCommand)
   context.subscriptions.push(configChangeDisposable)

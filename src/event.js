@@ -22,9 +22,22 @@ function handleSidebarMessage(webviewView, context) {
   }
   webviewManager.on('recentFilesUpdated', updateListener)
 
+  // 监听 tab 切换（含 CustomEditor，onDidChangeActiveTextEditor 对 CustomEditor 无效）
+  const tabChangeListener = vscode.window.tabGroups.onDidChangeTabs(() => {
+    const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab
+    const input = activeTab?.input
+    const filePath = input?.uri?.fsPath
+    if (filePath && (filePath.endsWith('.ui') || filePath.endsWith('.mybricks'))) {
+      webviewView.webview.postMessage({ command: 'activeFileChanged', filePath })
+    } else {
+      webviewView.webview.postMessage({ command: 'activeFileChanged', filePath: null })
+    }
+  })
+
   // 当 Webview 销毁时，移除监听器
   webviewView.onDidDispose(() => {
     webviewManager.removeListener('recentFilesUpdated', updateListener)
+    tabChangeListener.dispose()
   })
 
   // 监听侧边栏消息
@@ -65,13 +78,21 @@ function handleSidebarMessage(webviewView, context) {
         }
         
         // 获取最近文件列表
-        case 'getRecentFiles':
+        case 'getRecentFiles': {
           const recentFiles = webviewManager.getRecentFiles() || []
+          const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab
+          const activePath = activeTab?.input?.uri?.fsPath
+          const activeFilePath =
+            activePath && (activePath.endsWith('.ui') || activePath.endsWith('.mybricks'))
+              ? activePath
+              : null
           webviewView.webview.postMessage({
             command: 'updateRecentFiles',
-            data: recentFiles
+            data: recentFiles,
+            activeFilePath,
           })
           break
+        }
 
         // 打开最近文件
         case 'openRecentFile': {

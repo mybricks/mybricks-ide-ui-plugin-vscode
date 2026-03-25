@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -78,8 +78,17 @@
         white-space: nowrap;
         overflow: hidden;
       }
-      .recent-item:hover {
+      .recent-item:hover,
+      .recent-item.context-active {
         background: var(--vscode-list-hoverBackground);
+      }
+      .recent-item.focused {
+        background: var(--vscode-list-activeSelectionBackground);
+        color: var(--vscode-list-activeSelectionForeground);
+      }
+      .recent-item.focused .icon {
+        opacity: 1;
+        color: var(--vscode-list-activeSelectionForeground);
       }
       .recent-item .icon {
         flex-shrink: 0;
@@ -144,7 +153,10 @@
       }
       .context-menu-separator {
         height: 1px;
-        background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border));
+        background: var(
+          --vscode-menu-separatorBackground,
+          var(--vscode-panel-border)
+        );
         margin: 2px 0;
         opacity: 0.5;
       }
@@ -154,15 +166,20 @@
     <div class="sidebar">
       <div class="row" data-action="openIDE">
         <span class="row-icon">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3v10M3 8h10"/>
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M8 3v10M3 8h10" />
           </svg>
         </span>
         <span>新建 .ui 文件</span>
       </div>
 
       <div class="divider"></div>
-      
+
       <div class="section-title">最近打开</div>
       <div class="recent-list" id="recent-list">
         <div class="empty-tip">加载中...</div>
@@ -172,21 +189,36 @@
     <!-- 右键菜单 -->
     <div class="context-menu" id="context-menu">
       <div class="context-menu-item" id="ctx-reveal">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M1.5 2.5h5l1.5 1.5h6.5v9.5H1.5z"/>
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="M1.5 2.5h5l1.5 1.5h6.5v9.5H1.5z" />
         </svg>
         在资源管理器中显示
       </div>
       <div class="context-menu-item" id="ctx-reveal-os">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M2 2h12v10H2zM2 9h12M5 9V12M11 9V12M5 12h6"/>
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="M2 2h12v10H2zM2 9h12M5 9V12M11 9V12M5 12h6" />
         </svg>
         在文件管理器中打开
       </div>
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" id="ctx-remove">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M4 4l8 8M12 4l-8 8"/>
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="M4 4l8 8M12 4l-8 8" />
         </svg>
         从列表中移除
       </div>
@@ -200,19 +232,40 @@
         vscode.postMessage({ command: 'openIDE' })
       }
 
-      document.querySelectorAll('[data-action="openIDE"]').forEach(function (el) {
-        el.addEventListener('click', openIDE)
-      })
+      document
+        .querySelectorAll('[data-action="openIDE"]')
+        .forEach(function (el) {
+          el.addEventListener('click', openIDE)
+        })
 
       // 请求最近文件列表
       vscode.postMessage({ command: 'getRecentFiles' })
 
+      let activeFilePath = null
+
+      function setFocusedItem(filePath) {
+        activeFilePath = filePath
+        document.querySelectorAll('.recent-item').forEach((el) => {
+          if (el.dataset.filePath === filePath) {
+            el.classList.add('focused')
+          } else {
+            el.classList.remove('focused')
+          }
+        })
+      }
+
       // 监听消息
-      window.addEventListener('message', event => {
+      window.addEventListener('message', (event) => {
         const message = event.data
         switch (message.command) {
           case 'updateRecentFiles':
             renderRecentFiles(message.data)
+            if (message.activeFilePath !== undefined) {
+              setFocusedItem(message.activeFilePath)
+            }
+            break
+          case 'activeFileChanged':
+            setFocusedItem(message.filePath)
             break
         }
       })
@@ -223,9 +276,17 @@
       const ctxRevealOS = document.getElementById('ctx-reveal-os')
       const ctxRemove = document.getElementById('ctx-remove')
       let ctxFilePath = null
+      let ctxActiveItem = null
 
-      function showContextMenu(x, y, filePath) {
+      function showContextMenu(x, y, filePath, item) {
         ctxFilePath = filePath
+        if (ctxActiveItem) {
+          ctxActiveItem.classList.remove('context-active')
+        }
+        ctxActiveItem = item || null
+        if (ctxActiveItem) {
+          ctxActiveItem.classList.add('context-active')
+        }
         // 先显示再调整位置，确保能拿到尺寸
         contextMenu.classList.add('visible')
         const menuW = contextMenu.offsetWidth
@@ -241,11 +302,18 @@
       function hideContextMenu() {
         contextMenu.classList.remove('visible')
         ctxFilePath = null
+        if (ctxActiveItem) {
+          ctxActiveItem.classList.remove('context-active')
+          ctxActiveItem = null
+        }
       }
 
       ctxReveal.addEventListener('click', () => {
         if (ctxFilePath) {
-          vscode.postMessage({ command: 'revealInExplorer', filePath: ctxFilePath })
+          vscode.postMessage({
+            command: 'revealInExplorer',
+            filePath: ctxFilePath,
+          })
         }
         hideContextMenu()
       })
@@ -259,7 +327,10 @@
 
       ctxRemove.addEventListener('click', () => {
         if (ctxFilePath) {
-          vscode.postMessage({ command: 'removeRecentFile', filePath: ctxFilePath })
+          vscode.postMessage({
+            command: 'removeRecentFile',
+            filePath: ctxFilePath,
+          })
         }
         hideContextMenu()
       })
@@ -277,20 +348,21 @@
       function renderRecentFiles(files) {
         const container = document.getElementById('recent-list')
         container.innerHTML = ''
-        
+
         if (!files || files.length === 0) {
-          container.innerHTML = '<div class="empty-tip">暂无最近打开的文件</div>'
+          container.innerHTML =
+            '<div class="empty-tip">暂无最近打开的文件</div>'
           return
         }
 
-        files.forEach(filePath => {
+        files.forEach((filePath) => {
           const item = document.createElement('div')
           item.className = 'recent-item'
-          
+
           // 获取文件名
           const separator = filePath.includes('/') ? '/' : '\\'
           const fileName = filePath.split(separator).pop()
-          
+
           item.innerHTML = `
             <span class="icon">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -300,19 +372,25 @@
             </span>
             <span class="name" title="${filePath}">${fileName}</span>
           `
-          
+
+          item.dataset.filePath = filePath
+          if (filePath === activeFilePath) {
+            item.classList.add('focused')
+          }
+
           item.addEventListener('click', () => {
-            vscode.postMessage({ 
-              command: 'openRecentFile', 
-              filePath: filePath 
+            setFocusedItem(filePath)
+            vscode.postMessage({
+              command: 'openRecentFile',
+              filePath: filePath,
             })
           })
 
           item.addEventListener('contextmenu', (e) => {
             e.preventDefault()
-            showContextMenu(e.clientX, e.clientY, filePath)
+            showContextMenu(e.clientX, e.clientY, filePath, item)
           })
-          
+
           container.appendChild(item)
         })
       }

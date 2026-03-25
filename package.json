@@ -37,8 +37,12 @@
         "viewType": "mybricks.editor",
         "displayName": "MyBricks Editor",
         "selector": [
-          { "filenamePattern": "*.ui" },
-          { "filenamePattern": "*.mybricks" }
+          {
+            "filenamePattern": "*.ui"
+          },
+          {
+            "filenamePattern": "*.mybricks"
+          }
         ],
         "priority": "default"
       }
@@ -58,6 +62,10 @@
         "title": "用 MyBricks 打开"
       },
       {
+        "command": "mybricks.newUIFile",
+        "title": "新建 .ui 文件"
+      },
+      {
         "command": "mybricks.enableMCPService",
         "title": "开启 MCP 服务"
       }
@@ -67,6 +75,11 @@
         {
           "command": "mybricks.openFile",
           "when": "resourceExtname == .mybricks || resourceExtname == .ui",
+          "group": "navigation"
+        },
+        {
+          "command": "mybricks.newUIFile",
+          "when": "explorerResourceIsFolder",
           "group": "navigation"
         }
       ]
@@ -105,7 +118,10 @@
         "mybricks.preferredFileExtension": {
           "type": "string",
           "default": ".ui",
-          "enum": [".ui", ".mybricks"],
+          "enum": [
+            ".ui",
+            ".mybricks"
+          ],
           "description": "新建/另存为时默认使用的文件后缀；同时支持 .ui 与 .mybricks 打开。"
         }
       }

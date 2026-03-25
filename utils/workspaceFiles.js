@@ -2,6 +2,7 @@ const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
+const { PROTECTED_DIRS } = require('./constants')
 
 /**
  * 获取工作区根路径（未打开工作区时使用 process.cwd() 或用户目录作为回退）
@@ -53,7 +54,7 @@ function writeWorkspaceFile(relativePath, content) {
   if (!fullPath.startsWith(root)) {
     return { error: '路径不能超出工作区范围' }
   }
-  if (path.relative(root, fullPath).split(path.sep).some((seg) => seg === 'node_modules' || seg === '.git')) {
+  if (path.relative(root, fullPath).split(path.sep).some((seg) => PROTECTED_DIRS.includes(seg))) {
     return { error: '不允许写入 node_modules、.git 等受保护目录' }
   }
 
@@ -149,6 +150,7 @@ function writeWorkspaceFilesFromResults(basePath, results) {
 }
 
 module.exports = {
+  PROTECTED_DIRS,
   getWorkspaceRoot,
   readWorkspaceFile,
   writeWorkspaceFile,
