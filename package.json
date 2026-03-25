@@ -3,7 +3,7 @@
   "displayName": "VibeUI",
   "description": "Vibe prototype、Vibe design、Vibe Coding",
   "icon": "images/mybricks.png",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "publisher": "mybricks",
   "scripts": {
     "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json",
