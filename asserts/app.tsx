@@ -1,7 +1,15 @@
 /**
  * MyBricks 主应用组件
  */
-import React, { useState, useRef, useCallback, useEffect, useMemo, createContext, useContext } from 'react'
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  createContext,
+  useContext,
+} from 'react'
 import { createPortal } from 'react-dom'
 import {
   ConfigProvider,
@@ -16,8 +24,13 @@ import {
   Flex,
   Tooltip,
 } from 'antd'
-import { VerticalAlignBottomOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import {
+  VerticalAlignBottomOutlined,
+  CloseOutlined,
+  InfoCircleOutlined,
+} from '@ant-design/icons'
 import ExportCode from './components/export-code'
+import DepInfoPopoverContent from './components/dep-info-popover'
 import { config as getDesignerConfig } from './config'
 import { useMCP } from './ai/mcp'
 import { loadManifest } from './manifestLoader'
@@ -47,13 +60,39 @@ const ToolbarContext = createContext<ToolbarContextValue>({ lastSavedAt: null })
 /** 展示最后保存时间，通过 ToolbarContext 感知更新（绕过 SPADesigner 对 toolbar 的缓存） */
 function SaveTimeDisplay() {
   const { lastSavedAt: d } = useContext(ToolbarContext)
-  if (!d) return <span style={{ fontSize: 11, color: 'var(--mybricks-text-color-main)', opacity: 0.45, userSelect: 'none', letterSpacing: '0.01em' }}>尚未保存</span>
+  if (!d)
+    return (
+      <span
+        style={{
+          fontSize: 11,
+          color: 'var(--mybricks-text-color-main)',
+          opacity: 0.45,
+          userSelect: 'none',
+          letterSpacing: '0.01em',
+        }}
+      >
+        尚未保存
+      </span>
+    )
   const now = new Date()
   const isToday = d.toDateString() === now.toDateString()
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   const text = `保存于 ${isToday ? '' : `${d.getMonth() + 1}/${d.getDate()} `}${hh}:${mm}`
-  return <span style={{ fontSize: 11, color: 'var(--mybricks-text-color-main)', opacity: 0.45, userSelect: 'none', letterSpacing: '0.01em', fontStyle: 'italic' }}>{text}</span>
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        color: 'var(--mybricks-text-color-main)',
+        opacity: 0.45,
+        userSelect: 'none',
+        letterSpacing: '0.01em',
+        fontStyle: 'italic',
+      }}
+    >
+      {text}
+    </span>
+  )
 }
 
 /**
@@ -69,10 +108,24 @@ function loadScript(url: string): Promise<void> {
   })
 }
 
-type ThemeVar = { propertyName: string; value: string; title: string; type: string }
+type ThemeVar = {
+  propertyName: string
+  value: string
+  title: string
+  type: string
+}
 type Theme = { id: string; name: string; vars: ThemeVar[] }
-type AvailableLibrary = { name: string; version: string; readme: string; urls: string[]; library: string }
-type CodingConfigData = { themes?: Theme[]; availableLibraries?: AvailableLibrary[] }
+type AvailableLibrary = {
+  name: string
+  version: string
+  readme: string
+  urls: string[]
+  library: string
+}
+type CodingConfigData = {
+  themes?: Theme[]
+  availableLibraries?: AvailableLibrary[]
+}
 
 /**
  * 从 CDN 获取 codingConfig（三方库 + 主题配置）
@@ -94,6 +147,9 @@ export default function App() {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
   const [exportPopoverVisible, setExportPopoverVisible] = useState(false)
+
+  const [debugPort, setDebugPort] = useState<number | null>(null)
+  const [debugLoading, setDebugLoading] = useState(false)
 
   // 消息提示处理
   const onMessage = useCallback((type, msg, duration = 3) => {
@@ -154,19 +210,22 @@ export default function App() {
   // 0. 启动时立即获取当前文件名和文件修改时间（不等 SPADesigner 加载）
   useEffect(() => {
     if (!vsCodeMessage?.call) return
-    vsCodeMessage.call('getFileContent').then((fileResult: any) => {
-      const filePath: string = fileResult?.path ?? ''
-      if (filePath) {
-        setCurrentFileName(extractFileName(filePath))
-      }
-      // 有文件路径时用文件的 mtime 初始化保存时间，新文件保持 null（显示"尚未保存"）
-      if (fileResult?.mtime) {
-        setLastSavedAt(new Date(fileResult.mtime))
-      }
-      // 读取文件唯一 ID
-      const fid: string | undefined = fileResult?.content?.meta?.fileId
-      if (fid) setFileId(fid)
-    }).catch(() => {})
+    vsCodeMessage
+      .call('getFileContent')
+      .then((fileResult: any) => {
+        const filePath: string = fileResult?.path ?? ''
+        if (filePath) {
+          setCurrentFileName(extractFileName(filePath))
+        }
+        // 有文件路径时用文件的 mtime 初始化保存时间，新文件保持 null（显示"尚未保存"）
+        if (fileResult?.mtime) {
+          setLastSavedAt(new Date(fileResult.mtime))
+        }
+        // 读取文件唯一 ID
+        const fid: string | undefined = fileResult?.content?.meta?.fileId
+        if (fid) setFileId(fid)
+      })
+      .catch(() => {})
   }, [])
 
   // 1. 启动时 fetch manifest → 动态加载 designer-spa 和 plugin-ai
@@ -220,18 +279,23 @@ export default function App() {
         if (pluginAIUrl) {
           scripts.push(loadScript(pluginAIUrl))
         } else {
-          console.warn('[manifest] pluginAI.url 和 version 均为空，跳过 plugin-ai 加载')
+          console.warn(
+            '[manifest] pluginAI.url 和 version 均为空，跳过 plugin-ai 加载',
+          )
         }
 
         // 加载 codingConfig 中的三方库 UMD 文件（JS），需在加载设计器配置前完成
         const libs = codingConfig?.availableLibraries ?? []
         for (const lib of libs) {
           for (const url of lib.urls ?? []) {
-            if (/\.js(\?|$)/i.test(url) || (!url.endsWith('.css') && !url.endsWith('.less'))) {
+            if (
+              /\.js(\?|$)/i.test(url) ||
+              (!url.endsWith('.css') && !url.endsWith('.less'))
+            ) {
               scripts.push(
                 loadScript(url).catch((err) => {
                   console.warn(`[codingConfig] 三方库加载失败: ${url}`, err)
-                })
+                }),
               )
             }
           }
@@ -242,7 +306,9 @@ export default function App() {
       .then(async () => {
         const designer = (window as any).mybricks?.SPADesigner
         if (!designer) {
-          throw new Error('[manifest] 加载后 window.mybricks.SPADesigner 不存在')
+          throw new Error(
+            '[manifest] 加载后 window.mybricks.SPADesigner 不存在',
+          )
         }
 
         // 检测 Infra 服务是否可用，决定 AI 请求渠道
@@ -254,15 +320,24 @@ export default function App() {
         setInfraAvailable(infraOk)
 
         // 读取用户手动选择的渠道覆盖（存储在 globalState）
-        const channelOverride = await vsCodeMessage?.call?.('getAIChannelOverride').catch(() => null) ?? null
+        const channelOverride =
+          (await vsCodeMessage
+            ?.call?.('getAIChannelOverride')
+            .catch(() => null)) ?? null
 
         // 最终渠道：优先使用覆盖值，否则跟随 infra 检测结果
-        const effectiveChannel: 'infra' | 'mybricks' = channelOverride === 'mybricks' ? 'mybricks' : (infraOk ? 'infra' : 'mybricks')
+        const effectiveChannel: 'infra' | 'mybricks' =
+          channelOverride === 'mybricks'
+            ? 'mybricks'
+            : infraOk
+              ? 'infra'
+              : 'mybricks'
         setAIChannel(effectiveChannel)
 
         if (effectiveChannel !== 'infra') {
           // Infra 不可用，检查用户是否配置了 MyBricks token
-          const token = await vsCodeMessage?.call?.('getAIToken').catch(() => '') ?? ''
+          const token =
+            (await vsCodeMessage?.call?.('getAIToken').catch(() => '')) ?? ''
           setHasAIToken(typeof token === 'string' && token.trim() !== '')
         }
 
@@ -277,7 +352,11 @@ export default function App() {
   // 2. SPADesigner 就绪后，初始化设计器 config
   useEffect(() => {
     if (!SPADesigner || !aiChannel) return
-    getDesignerConfig({ designerRef, aiChannel, codingConfig: codingConfigRef.current }).then((_config) => {
+    getDesignerConfig({
+      designerRef,
+      aiChannel,
+      codingConfig: codingConfigRef.current,
+    }).then((_config) => {
       setInitSuccess(true)
       config.current = _config
     })
@@ -287,23 +366,80 @@ export default function App() {
     // 只有 MyBricks 渠道才需要检查 token
     if (aiChannel !== 'mybricks') return
     if (!vsCodeMessage?.call) return
-    vsCodeMessage.call('getAIToken').then((token: string) => {
-      setHasAIToken(typeof token === 'string' && token.trim() !== '')
-    }).catch(() => setHasAIToken(false))
+    vsCodeMessage
+      .call('getAIToken')
+      .then((token: string) => {
+        setHasAIToken(typeof token === 'string' && token.trim() !== '')
+      })
+      .catch(() => setHasAIToken(false))
   }, [aiChannel])
 
   // 手动切换渠道：持久化选择 → reload WebView
   const switchToMybricks = useCallback(async () => {
     if (!vsCodeMessage?.call) return
-    await vsCodeMessage.call('setAIChannelOverride', { channel: 'mybricks' }).catch(() => {})
+    await vsCodeMessage
+      .call('setAIChannelOverride', { channel: 'mybricks' })
+      .catch(() => {})
     vsCodeMessage.call('reloadWebview').catch(() => {})
   }, [])
 
   const switchToInfra = useCallback(async () => {
     if (!vsCodeMessage?.call) return
-    await vsCodeMessage.call('setAIChannelOverride', { channel: null }).catch(() => {})
+    await vsCodeMessage
+      .call('setAIChannelOverride', { channel: null })
+      .catch(() => {})
     vsCodeMessage.call('reloadWebview').catch(() => {})
   }, [])
+
+  // const startDebug = useCallback(async () => {
+  //   if (!vsCodeMessage?.call) return
+  //   setDebugLoading(true)
+  //   try {
+  //     if (debugPort !== null) {
+  //       await vsCodeMessage.call('stopDebug')
+  //       setDebugPort(null)
+  //       message.success('调试服务已停止')
+  //     } else {
+  //       const res = await vsCodeMessage.call('debug', {
+  //         proxy: {
+  //           '/api': {
+  //             target: 'https://aicode.staging.kuaishou.com',
+  //             changeOrigin: true,
+  //             headers: {
+  //               cookie:
+  //                 'accessproxy_session=01b57e63647d439a534de64bd77df861d8e9a8104fEAMYm6Kj1NIzKhQSDHpodXBlbmdxaWFuZwoCKAEYAQokNzFhODg1ODQtZjEzYi00ZmNjLTk5OGItOTk0MTM4NTc3ZTMwIhthaWNvZGUuc3RhZ2luZy5rdWFpc2hvdS5jb20=',
+  //             },
+  //           },
+  //         },
+  //       })
+  //       setDebugPort(res?.port ?? null)
+  //       message.success(`调试服务已启动，端口: ${res?.port}`)
+  //     }
+  //   } catch (err: any) {
+  //     message.error(`操作失败: ${err?.message ?? err}`)
+  //   } finally {
+  //     setDebugLoading(false)
+  //   }
+  // }, [debugPort])
+
+  // const sendTestRequest = useCallback(async () => {
+  //   if (debugPort === null) {
+  //     message.warning('请先启动调试服务')
+  //     return
+  //   }
+  //   try {
+  //     const res = await vsCodeMessage.call('httpRequest', {
+  //       url: `http://localhost:${debugPort}/api/user/getUserInfo?userId=zhupengqiang`,
+  //     })
+  //     if (res?.error) {
+  //       message.error(`请求失败: ${res.error}`)
+  //       return
+  //     }
+  //     console.log('res', res)
+  //   } catch (err: any) {
+  //     message.error(`请求失败: ${err?.message ?? err}`)
+  //   }
+  // }, [debugPort])
 
   useEffect(() => {
     if (!initSuccess) return
@@ -324,8 +460,8 @@ export default function App() {
 
   // 标记已编辑：通知 extension 文档已变脏（VSCode 标签圆点），并触发防抖自动保存
   const markEdited = useCallback(() => {
-    console.log('edited');
-    setChanged((c) => c + 1);
+    console.log('edited')
+    setChanged((c) => c + 1)
 
     // 通知 extension 内容已变更，由 VSCode CustomEditorProvider 驱动标签脏状态
     vsCodeMessage?.call('notifyContentChanged', {}).catch(() => {})
@@ -343,50 +479,58 @@ export default function App() {
 
   // 保存：直接保存 dump() 的结果到当前设计文件（.ui / .mybricks）
   // silent=true 时前端静默（不弹 antd 消息）；backendSilent=true 时后端也静默（不弹 VSCode 右下角提示）
-  const save = useCallback(async (silent = false, backendSilent = false) => {
-    const designer = designerRef.current
-    if (!designer) {
-      if (!silent) message.error('设计器未初始化')
-      return
-    }
-    try {
-      // 直接获取 dump 的 JSON 数据
-      const json = designer.dump()
-      if (!json) {
-        if (!silent) message.error('无法获取设计器数据')
+  const save = useCallback(
+    async (silent = false, backendSilent = false) => {
+      const designer = designerRef.current
+      if (!designer) {
+        if (!silent) message.error('设计器未初始化')
         return
       }
-
-      if (!vsCodeMessage) {
-        if (!silent) message.warning('当前环境无法保存，请使用 VSCode 插件')
-        return
-      }
-
-      // 获取当前文件路径
-      const fileResult = await vsCodeMessage.call('getFileContent')
-
-      const currentFilePath = fileResult?.path ?? null
-
-      // 保存 JSON 数据
-      const res = await vsCodeMessage.call('saveProject', { saveContent: json, currentFilePath, silent: backendSilent })
-      if (res?.success) {
-        setChanged(0)
-        setLastSavedAt(new Date())
-        if (res.path) {
-          const savedName = extractFileName(res.path)
-          setCurrentFileName(savedName)
-          if (!silent) message.success(`已保存: ${savedName}`)
-        } else {
-          if (!silent) message.success('保存完成')
+      try {
+        // 直接获取 dump 的 JSON 数据
+        const json = designer.dump()
+        if (!json) {
+          if (!silent) message.error('无法获取设计器数据')
+          return
         }
-      } else if (!silent && res?.message && res.message !== '用户取消保存') {
-        message.error(res.message)
+
+        if (!vsCodeMessage) {
+          if (!silent) message.warning('当前环境无法保存，请使用 VSCode 插件')
+          return
+        }
+
+        // 获取当前文件路径
+        const fileResult = await vsCodeMessage.call('getFileContent')
+
+        const currentFilePath = fileResult?.path ?? null
+
+        // 保存 JSON 数据
+        const res = await vsCodeMessage.call('saveProject', {
+          saveContent: json,
+          currentFilePath,
+          silent: backendSilent,
+        })
+        if (res?.success) {
+          setChanged(0)
+          setLastSavedAt(new Date())
+          if (res.path) {
+            const savedName = extractFileName(res.path)
+            setCurrentFileName(savedName)
+            if (!silent) message.success(`已保存: ${savedName}`)
+          } else {
+            if (!silent) message.success('保存完成')
+          }
+        } else if (!silent && res?.message && res.message !== '用户取消保存') {
+          message.error(res.message)
+        }
+      } catch (error) {
+        console.error('保存失败:', error)
+        if (!silent)
+          message.error(error instanceof Error ? error.message : '保存失败')
       }
-    } catch (error) {
-      console.error('保存失败:', error)
-      if (!silent) message.error(error instanceof Error ? error.message : '保存失败')
-    }
-  }, [extractFileName])
+    },
+    [extractFileName],
+  )
 
   // 保持 saveRef 始终指向最新的 save（供防抖回调调用）
   useEffect(() => {
@@ -402,205 +546,245 @@ export default function App() {
     return () => unsub?.()
   }, [save])
 
-
   // 左边标题栏：文件名
-  const titleBar = useMemo(() => (
-    <div style={{
-      flex: 1,
-      minWidth: 0,
-      width: '100%',
-      fontSize: 13,
-      fontWeight: 500,
-      color: '#555',
-      cursor: 'default',
-      userSelect: 'none',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-    }}>
-      {currentFileName || '未命名文件'}
-    </div>
-  ), [currentFileName])
+  const titleBar = useMemo(
+    () => (
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          width: '100%',
+          fontSize: 13,
+          fontWeight: 500,
+          color: '#555',
+          cursor: 'default',
+          userSelect: 'none',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {currentFileName || '未命名文件'}
+      </div>
+    ),
+    [currentFileName],
+  )
 
   // toolbar 传给 SPADesigner 的只是一个空容器，内容通过 createPortal 从 App 树注入
   // 这样 SPADesigner 缓存 toolbar 也无所谓，portal 内容始终随 App state 更新
-  const toolbarBtns = useMemo(() => (
-    <div id='mybricks-toolbar-root' style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center',  paddingLeft: 12, paddingRight: 15, display: 'flex' }} />
-  ), [])
+  const toolbarBtns = useMemo(
+    () => (
+      <div
+        id="mybricks-toolbar-root"
+        style={{
+          width: '100%',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingLeft: 12,
+          paddingRight: 15,
+          display: 'flex',
+        }}
+      />
+    ),
+    [],
+  )
 
   // SPADesigner onLoad 触发时 toolbar DOM 已渲染完毕，此时挂载 portal
-  const [toolbarPortalRoot, setToolbarPortalRoot] = useState<Element | null>(null)
+  const [toolbarPortalRoot, setToolbarPortalRoot] = useState<Element | null>(
+    null,
+  )
   const onDesignerLoad = useCallback(() => {
     setToolbarPortalRoot(document.getElementById('mybricks-toolbar-root'))
   }, [])
 
   return (
     <ToolbarContext.Provider value={{ lastSavedAt }}>
-    <ConfigProvider {...ANTD_CONFIG}>
-      <div className='ide'>
-        {/* toolbar portal：从 App 树直接渲染到 SPADesigner 的 toolbar 容器内，state 更新可正常穿透 */}
-        {toolbarPortalRoot && createPortal(
-          <>
-            <SaveTimeDisplay />
-            <Popover
-              trigger='click'
-              placement='bottomRight'
-              arrow={false}
-              overlayInnerStyle={{
-                padding: 0,
-                background: '#fff',
-                border: '1px solid #e5e7eb',
-                borderRadius: 6,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-                minWidth: 192,
-                overflow: 'hidden',
-              }}
-              content={
-                <div style={{ fontFamily: 'var(--vscode-editor-font-family, "SF Mono", Menlo, monospace)', fontSize: 12 }}>
-                  <div style={{ padding: '8px 12px 7px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="var(--mybricks-color-primary)">
-                      <path d="M7.443.505a1 1 0 011.114 0l6 4A1 1 0 0115 5.5v5a1 1 0 00-.443.995l-6 4a1 1 0 01-1.114 0l-6-4A1 1 0 011 10.5v-5a1 1 0 00.443-.995l6-4zM8 1.8L2.557 5.5 8 9.2l5.443-3.7L8 1.8zM2 6.756V10.5l5.5 3.667V10.42L2 6.756zM9.5 10.42v3.747L15 10.5V6.756L9.5 10.42z"/>
-                    </svg>
-                    <span style={{ color: '#111827', fontWeight: 600, fontSize: 12, letterSpacing: '0.01em' }}>依赖库信息</span>
-                  </div>
-                  <div style={{ padding: '8px 12px' }}>
-                    {appVersion && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: designerVersion ? 5 : 0 }}>
-                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>version</span>
-                        <span style={{ color: 'var(--mybricks-color-primary)', fontWeight: 700, fontSize: 12 }}>v{appVersion}</span>
-                      </div>
-                    )}
-                    {designerVersion && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: pluginAIVersion ? 5 : 0 }}>
-                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>设计器</span>
-                        <span style={{ color: '#374151', fontSize: 12 }}>v{designerVersion}</span>
-                      </div>
-                    )}
-                    {pluginAIVersion && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (fileId || aiChannel) ? 5 : 0 }}>
-                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 插件</span>
-                        <span style={{ color: '#374151', fontSize: 12 }}>v{pluginAIVersion}</span>
-                      </div>
-                    )}
-                    {fileId && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: aiChannel ? 5 : 0 }}>
-                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>文件 ID</span>
-                        <span style={{ color: '#374151', fontSize: 11, fontFamily: 'monospace' }}>{fileId}</span>
-                      </div>
-                    )}
-                    {aiChannel && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#9ca3af', fontSize: 11, letterSpacing: '0.02em' }}>AI 渠道</span>
-                        <span style={{ color: aiChannel === 'infra' ? '#374151' : 'var(--mybricks-color-primary)', fontSize: 12, fontWeight: aiChannel === 'mybricks' ? 600 : 400 }}>
-                          {aiChannel === 'infra' ? '默认' : 'MyBricks'}
-                        </span>
-                      </div>
-                    )}
-                    {infraAvailable && aiChannel === 'infra' && (
-                      <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
-                        <button onClick={switchToMybricks} style={{ width: '100%', border: '1px solid var(--mybricks-color-primary)', borderRadius: 4, padding: '3px 0', cursor: 'pointer', fontSize: 11, color: 'var(--mybricks-color-primary)', background: '#fff', fontWeight: 500 }}>
-                          切换至 MyBricks 渠道
-                        </button>
-                      </div>
-                    )}
-                    {infraAvailable && aiChannel === 'mybricks' && (
-                      <div style={{ marginTop: 8, paddingTop: 7, borderTop: '1px solid #e5e7eb' }}>
-                        <button onClick={switchToInfra} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 4, padding: '3px 0', cursor: 'pointer', fontSize: 11, color: '#374151', background: '#fff', fontWeight: 500 }}>
-                          切换至默认渠道
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              }
-            >
-              <InfoCircleOutlined style={{ color: '#9ca3af', fontSize: 14, cursor: 'pointer' }} />
-            </Popover>
-          </>,
-          toolbarPortalRoot
-        )}
-        {/* 顶部工具栏 */}
-        {/* <div className='toolbar'>
+      <ConfigProvider {...ANTD_CONFIG}>
+        <div className="ide">
+          {/* toolbar portal：从 App 树直接渲染到 SPADesigner 的 toolbar 容器内，state 更新可正常穿透 */}
+          {toolbarPortalRoot &&
+            createPortal(
+              <>
+                <SaveTimeDisplay />
+                <Popover
+                  trigger="click"
+                  placement="bottomRight"
+                  arrow={false}
+                  overlayInnerStyle={{
+                    padding: 0,
+                    background: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 6,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                    minWidth: 192,
+                    overflow: 'hidden',
+                  }}
+                  content={
+                    <DepInfoPopoverContent
+                      appVersion={appVersion}
+                      designerVersion={designerVersion}
+                      pluginAIVersion={pluginAIVersion}
+                      fileId={fileId}
+                      aiChannel={aiChannel}
+                      infraAvailable={infraAvailable}
+                      onSwitchToMybricks={switchToMybricks}
+                      onSwitchToInfra={switchToInfra}
+                    />
+                  }
+                >
+                  <InfoCircleOutlined
+                    style={{
+                      color: '#9ca3af',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                  />
+                </Popover>
+                {/* <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginLeft: 6,
+                  }}
+                >
+                  <button
+                    onClick={startDebug}
+                    disabled={debugLoading}
+                    style={{
+                      border: `1px solid ${debugPort !== null ? '#f59e0b' : 'var(--mybricks-color-primary)'}`,
+                      borderRadius: 4,
+                      padding: '2px 8px',
+                      cursor: debugLoading ? 'not-allowed' : 'pointer',
+                      fontSize: 11,
+                      color:
+                        debugPort !== null
+                          ? '#f59e0b'
+                          : 'var(--mybricks-color-primary)',
+                      background: '#fff',
+                      fontWeight: 500,
+                      opacity: debugLoading ? 0.6 : 1,
+                    }}
+                  >
+                    {debugLoading
+                      ? '处理中...'
+                      : debugPort !== null
+                        ? `停止调试 :${debugPort}`
+                        : '开始调试'}
+                  </button>
+                  <button
+                    onClick={sendTestRequest}
+                    style={{
+                      border: '1px solid #d1d5db',
+                      borderRadius: 4,
+                      padding: '2px 8px',
+                      fontSize: 11,
+                      color: '#374151',
+                      background: '#fff',
+                      fontWeight: 500,
+                    }}
+                  >
+                    发送接口
+                  </button>
+                </div> */}
+              </>,
+              toolbarPortalRoot,
+            )}
+          {/* 顶部工具栏 */}
+          {/* <div className='toolbar'>
           {titleBar}
           {toolbarBtns}
         </div> */}
 
-        {/* 设计器主区域 */}
-        <div className={'designer'}>
-          {initSuccess && !hasAIToken && !aiTokenBannerClosed && (
-            <div className='ai-token-banner'>
-              <div className='ai-token-banner-row'>
-                <span className='ai-token-banner-desc'>未配置请求凭证，所有AI 能力将不可用。</span>
-                <span
-                  className='ai-token-banner-action'
-                  role='button'
-                  tabIndex={0}
-                  onClick={async () => {
-                    try {
-                      if (vsCodeMessage?.call) {
-                        await vsCodeMessage.call('openAISettings')
-                      } else {
-                        message.info('请打开设置，搜索「MyBricks」→ AI 请求凭证')
+          {/* 设计器主区域 */}
+          <div className={'designer'}>
+            {initSuccess && !hasAIToken && !aiTokenBannerClosed && (
+              <div className="ai-token-banner">
+                <div className="ai-token-banner-row">
+                  <span className="ai-token-banner-desc">
+                    未配置请求凭证，所有AI 能力将不可用。
+                  </span>
+                  <span
+                    className="ai-token-banner-action"
+                    role="button"
+                    tabIndex={0}
+                    onClick={async () => {
+                      try {
+                        if (vsCodeMessage?.call) {
+                          await vsCodeMessage.call('openAISettings')
+                        } else {
+                          message.info(
+                            '请打开设置，搜索「MyBricks」→ AI 请求凭证',
+                          )
+                        }
+                      } catch {
+                        message.info(
+                          '请打开设置，搜索「MyBricks」→ AI 请求凭证',
+                        )
                       }
-                    } catch {
-                      message.info('请打开设置，搜索「MyBricks」→ AI 请求凭证')
+                    }}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' &&
+                      (e.currentTarget as HTMLElement).click()
                     }
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLElement).click()}
-                >
-                  去配置
-                </span>
-                <span
-                  className='ai-token-banner-close'
-                  onClick={() => setAITokenBannerClosed(true)}
-                  role='button'
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setAITokenBannerClosed(true)}
-                  aria-label='关闭'
-                >
-                  <CloseOutlined />
-                </span>
+                  >
+                    去配置
+                  </span>
+                  <span
+                    className="ai-token-banner-close"
+                    onClick={() => setAITokenBannerClosed(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) =>
+                      e.key === 'Enter' && setAITokenBannerClosed(true)
+                    }
+                    aria-label="关闭"
+                  >
+                    <CloseOutlined />
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
-          {mcpEnabled && !mcpServerReady && (
-            <Alert
-              message="MCP 已开启，但服务尚未连接"
-              description="请确保已在 Cursor 中启动 MCP 服务，并将 MCP 与 Skill 配置到当前项目后再使用设计器 AI 能力。"
-              type="info"
-              showIcon
-              style={{ margin: '8px 12px', flexShrink: 0 }}
-            />
-          )}
-          {/* SPADesigner 动态加载完成 + config 初始化完成后才渲染 */}
-          {initSuccess && SPADesigner && (
-            <SPADesigner
-              config={config.current}
-              ref={designerRef}
-              // titlebar={() => titleBar}
-              toolbar={() => toolbarBtns}
-              onLoad={onDesignerLoad}
-              onMessage={onMessage}
-              onEdit={markEdited}
-            />
-          )}
-          {/* SPADesigner 加载中占位 */}
-          {!SPADesigner && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              backgroundColor: 'var(--vscode-editor-background)',
-              color: 'var(--vscode-foreground)',
-              fontSize: 13,
-            }}>
-              获取设计器中...
-            </div>
-          )}
+            )}
+            {mcpEnabled && !mcpServerReady && (
+              <Alert
+                message="MCP 已开启，但服务尚未连接"
+                description="请确保已在 Cursor 中启动 MCP 服务，并将 MCP 与 Skill 配置到当前项目后再使用设计器 AI 能力。"
+                type="info"
+                showIcon
+                style={{ margin: '8px 12px', flexShrink: 0 }}
+              />
+            )}
+            {/* SPADesigner 动态加载完成 + config 初始化完成后才渲染 */}
+            {initSuccess && SPADesigner && (
+              <SPADesigner
+                config={config.current}
+                ref={designerRef}
+                // titlebar={() => titleBar}
+                toolbar={() => toolbarBtns}
+                onLoad={onDesignerLoad}
+                onMessage={onMessage}
+                onEdit={markEdited}
+              />
+            )}
+            {/* SPADesigner 加载中占位 */}
+            {!SPADesigner && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  backgroundColor: 'var(--vscode-editor-background)',
+                  color: 'var(--vscode-foreground)',
+                  fontSize: 13,
+                }}
+              >
+                获取设计器中...
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </ConfigProvider>
+      </ConfigProvider>
     </ToolbarContext.Provider>
   )
 }
