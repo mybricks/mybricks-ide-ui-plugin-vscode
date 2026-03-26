@@ -1,6 +1,7 @@
 const vscode = require('vscode')
 const EventEmitter = require('events')
 const path = require('path')
+const { STATE_KEYS } = require('../../utils/constants')
 
 /**
  * WebviewManager - 集中管理 CustomEditor Webview 生命周期和状态
@@ -155,11 +156,11 @@ class WebviewManager extends EventEmitter {
   async addRecentFile(filePath) {
     if (!this.context || !filePath) return
     const maxCount = 10
-    let recentFiles = this.context.globalState.get('mybricks.recentFiles', [])
+    let recentFiles = this.context.globalState.get(STATE_KEYS.RECENT_FILES, [])
     recentFiles = recentFiles.filter((f) => f !== filePath)
     recentFiles.unshift(filePath)
     if (recentFiles.length > maxCount) recentFiles = recentFiles.slice(0, maxCount)
-    await this.context.globalState.update('mybricks.recentFiles', recentFiles)
+    await this.context.globalState.update(STATE_KEYS.RECENT_FILES, recentFiles)
     this.emit('recentFilesUpdated', this.getRecentFiles())
   }
 
@@ -169,7 +170,7 @@ class WebviewManager extends EventEmitter {
    */
   getRecentFiles() {
     if (!this.context) return []
-    return this.context.globalState.get('mybricks.recentFiles', [])
+    return this.context.globalState.get(STATE_KEYS.RECENT_FILES, [])
   }
 
   /**
@@ -178,9 +179,9 @@ class WebviewManager extends EventEmitter {
    */
   async removeRecentFile(filePath) {
     if (!this.context) return
-    let recentFiles = this.context.globalState.get('mybricks.recentFiles', [])
+    let recentFiles = this.context.globalState.get(STATE_KEYS.RECENT_FILES, [])
     recentFiles = recentFiles.filter((f) => f !== filePath)
-    await this.context.globalState.update('mybricks.recentFiles', recentFiles)
+    await this.context.globalState.update(STATE_KEYS.RECENT_FILES, recentFiles)
     this.emit('recentFilesUpdated', this.getRecentFiles())
   }
 

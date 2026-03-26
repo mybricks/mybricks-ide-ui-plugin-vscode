@@ -12,6 +12,7 @@ const {
   getWorkspaceRoot,
 } = require('../utils/workspaceFiles')
 const { wrapResultsAsProject } = require('../utils/projectModeOutput')
+const { STATE_KEYS } = require('../utils/constants')
 
 /**
  * 注册所有事件处理器
@@ -35,13 +36,13 @@ function registerHandlers(messageApiInstance, context) {
 
   // 读取 AI 渠道覆盖偏好（null 表示未设置，跟随 infra 检测结果）
   messageApiInstance.registerHandler('getAIChannelOverride', () => {
-    return context.globalState.get('mybricks.aiChannelOverride', null)
+    return context.globalState.get(STATE_KEYS.AI_CHANNEL_OVERRIDE, null)
   })
 
   // 设置 AI 渠道覆盖偏好（'mybricks' 或 null 重置）
   messageApiInstance.registerHandler('setAIChannelOverride', async (data) => {
     const channel = data?.channel ?? null
-    await context.globalState.update('mybricks.aiChannelOverride', channel)
+    await context.globalState.update(STATE_KEYS.AI_CHANNEL_OVERRIDE, channel)
     return { success: true }
   })
 

@@ -4,6 +4,7 @@ const vscode = require('vscode')
 const { getInstance: getWebviewManager } = require('./manager/webviewManager')
 const { getPreferredExtension } = require('./fileExtension')
 const { getWorkspaceFolder } = require('../utils/utils')
+const { STATE_KEYS } = require('../utils/constants')
 
 /**
  * 处理侧边栏消息事件
@@ -49,9 +50,15 @@ function handleSidebarMessage(webviewView, context) {
           const preferredExt = getPreferredExtension()
           const workspaceFolder = getWorkspaceFolder(context)
           const extLabel = preferredExt.replace('.', '').toUpperCase()
-          const defaultUri = workspaceFolder
-            ? vscode.Uri.joinPath(workspaceFolder, 'project' + preferredExt)
+          // codeflicker-fix: DOC-Issue-003/bwifp75oe8bvl5lre80v
+          const lastSaveDir = context.workspaceState.get(STATE_KEYS.LAST_SAVE_DIR)
+          const baseDir = lastSaveDir && fs.existsSync(lastSaveDir)
+            ? vscode.Uri.file(lastSaveDir)
+            : workspaceFolder
+          const defaultUri = baseDir
+            ? vscode.Uri.joinPath(baseDir, 'project' + preferredExt)
             : undefined
+
           vscode.window.showSaveDialog({
             title: '新建 MyBricks 设计文件',
             defaultUri,
@@ -69,6 +76,7 @@ function handleSidebarMessage(webviewView, context) {
             } else if (ext !== '.ui' && ext !== '.mybricks') {
               filePath = path.join(path.dirname(filePath), path.basename(filePath, ext) + preferredExt)
             }
+            context.workspaceState.update(STATE_KEYS.LAST_SAVE_DIR, path.dirname(filePath))
             if (!fs.existsSync(filePath)) {
               fs.writeFileSync(filePath, '{}', 'utf-8')
             }
