@@ -309,7 +309,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 通过 extension host 转发 HTTP 请求（绕过 webview 的 CSP/CORS 限制）
   messageApiInstance.registerHandler('httpRequest', async (data) => {
-    const { url, method = 'GET', headers = {}, body } = data ?? {}
+    const { url, method = 'GET', headers = {}, body, params } = data ?? {}
 
     if (!url) return { error: '缺少 url 参数' }
 
@@ -318,9 +318,15 @@ function registerHandlers(messageApiInstance, context, filePath) {
       method: method.toUpperCase(),
       headers: { 'Accept-Encoding': 'identity', ...headers },
       data: body,
+      params,
     })
     console.log('proxy', res)
-    return res.data
+    return {
+      data: res.data,
+      headers: res.headers,
+      status: res.status,
+      statusText: res.statusText,
+    }
   })
 
   // 获取当前聚焦的元素信息
