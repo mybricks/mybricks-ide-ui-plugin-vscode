@@ -1,10 +1,17 @@
 const vscode = require('vscode')
 const path = require('path')
 const fs = require('fs')
+const axios = require('axios')
+
 const { isMybricksFile, getPreferredExtension } = require('./fileExtension')
-const { getFileContent, saveFileContent, saveProject } = require('../utils/saveProject')
+const {
+  getFileContent,
+  saveFileContent,
+  saveProject,
+} = require('../utils/saveProject')
 const { getWorkspaceFolder } = require('../utils/utils')
 const { exportProject } = require('../utils/exportProject')
+const { stopProxyServer, startProxyServer } = require('./proxy-server')
 const {
   readWorkspaceFile,
   writeWorkspaceFile,
@@ -25,13 +32,18 @@ function registerHandlers(messageApiInstance, context) {
     const filePath = data?.filePath
     if (!filePath) return
     if (fs.existsSync(filePath)) {
-      await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(filePath))
+      await vscode.commands.executeCommand(
+        'revealFileInOS',
+        vscode.Uri.file(filePath),
+      )
     }
   })
 
   // 读取「是否开启 MCP」配置（供前端与扩展内统一读取和监听）
   messageApiInstance.registerHandler('getMCPEnabled', () => {
-    return vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
+    return (
+      vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
+    )
   })
 
   // 读取 AI 渠道覆盖偏好（null 表示未设置，跟随 infra 检测结果）
@@ -50,7 +62,9 @@ function registerHandlers(messageApiInstance, context) {
   // 注意：需先返回响应，再执行 reload，否则 webview 重建后 response 无法送达前端
   messageApiInstance.registerHandler('reloadWebview', () => {
     setImmediate(() => {
-      const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+      const {
+        getInstance: getWebviewManager,
+      } = require('./manager/webviewManager')
       const webviewManager = getWebviewManager()
       const currentFilePath = webviewManager.getCurrentFilePath()
       webviewManager.reloadPanel(currentFilePath)
@@ -66,15 +80,22 @@ function registerHandlers(messageApiInstance, context) {
 
   // 打开设置页并定位到 MyBricks AI Token 配置项
   messageApiInstance.registerHandler('openAISettings', async () => {
-    await vscode.commands.executeCommand('workbench.action.openSettings', 'mybricks.ai.token')
+    await vscode.commands.executeCommand(
+      'workbench.action.openSettings',
+      'mybricks.ai.token',
+    )
   })
 
   // 获取优先后缀（新建/另存为默认，如 .ui）
-  messageApiInstance.registerHandler('getPreferredFileExtension', () => getPreferredExtension())
+  messageApiInstance.registerHandler('getPreferredFileExtension', () =>
+    getPreferredExtension(),
+  )
 
   // 获取低码项目内容（返回 { content, path }，path 为当前项目文件路径，无则 null）
   messageApiInstance.registerHandler('getFileContent', async () => {
-    const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+    const {
+      getInstance: getWebviewManager,
+    } = require('./manager/webviewManager')
     const webviewManager = getWebviewManager()
     let currentFilePath = webviewManager.getCurrentFilePath()
     // 若未通过设计文件打开设计器，则尝试从当前活动编辑器或已打开的设计文档取路径
@@ -84,7 +105,7 @@ function registerHandlers(messageApiInstance, context) {
         currentFilePath = activeDoc.uri.fsPath
       } else {
         const designDoc = vscode.workspace.textDocuments.find(
-          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName)
+          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName),
         )
         if (designDoc) currentFilePath = designDoc.uri.fsPath
       }
@@ -105,14 +126,16 @@ function registerHandlers(messageApiInstance, context) {
     if (now - _unnamedDirtyNotifiedAt < 60_000) return
     _unnamedDirtyNotifiedAt = now
     vscode.window.showWarningMessage(
-      '当前设计文件尚未保存到磁盘，建议先保存点击上方「保存」按钮进行保存。'
+      '当前设计文件尚未保存到磁盘，建议先保存点击上方「保存」按钮进行保存。',
     )
   })
 
   // AI 插件下载文件：弹窗选择保存路径，将 content 按字符串写入
   messageApiInstance.registerHandler('downloadFile', async (data) => {
-    const name = (data && data.name != null) ? String(data.name).trim() : 'download'
-    const content = (data && data.content !== undefined) ? String(data.content) : ''
+    const name =
+      data && data.name != null ? String(data.name).trim() : 'download'
+    const content =
+      data && data.content !== undefined ? String(data.content) : ''
     const workspaceUri = getWorkspaceFolder(context)
     const defaultUri = path.join(workspaceUri.fsPath, name)
     const uri = await vscode.window.showSaveDialog({
@@ -131,14 +154,21 @@ function registerHandlers(messageApiInstance, context) {
 
   // 保存项目：有 currentFilePath 则直接保存，否则弹窗选择路径和文件名（另存为）
   messageApiInstance.registerHandler('saveProject', async (data) => {
-    const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+    const {
+      getInstance: getWebviewManager,
+    } = require('./manager/webviewManager')
     const webviewManager = getWebviewManager()
     const saveContent = data?.saveContent != null ? data.saveContent : data
-    let currentFilePath = data?.currentFilePath ?? webviewManager.getCurrentFilePath()
+    let currentFilePath =
+      data?.currentFilePath ?? webviewManager.getCurrentFilePath()
     const silent = data?.silent === true
     const res = await saveProject(context, saveContent, currentFilePath, silent)
     // 新建文件另存为成功后：更新当前文件路径、面板标题，并加入最近打开列表
-    if (res.success && res.path && (!currentFilePath || !fs.existsSync(currentFilePath))) {
+    if (
+      res.success &&
+      res.path &&
+      (!currentFilePath || !fs.existsSync(currentFilePath))
+    ) {
       webviewManager.setCurrentFilePath(res.path)
       await webviewManager.addRecentFile(res.path)
       if (messageApiInstance.panel) {
@@ -157,7 +187,9 @@ function registerHandlers(messageApiInstance, context) {
 
   // 根据当前设计文件得到导出默认值：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
   messageApiInstance.registerHandler('getCurrentExportDefaults', () => {
-    const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+    const {
+      getInstance: getWebviewManager,
+    } = require('./manager/webviewManager')
     const webviewManager = getWebviewManager()
     let currentFilePath = webviewManager.getCurrentFilePath()
     if (!currentFilePath) {
@@ -166,22 +198,31 @@ function registerHandlers(messageApiInstance, context) {
         currentFilePath = activeDoc.uri.fsPath
       } else {
         const designDoc = vscode.workspace.textDocuments.find(
-          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName)
+          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName),
         )
         if (designDoc) currentFilePath = designDoc.uri.fsPath
       }
     }
     const root = getWorkspaceRoot()
     if (!currentFilePath) {
-      console.log('[导出] getCurrentExportDefaults: 无当前设计文件，返回默认', { projectName: 'my_project', exportDir: '.' })
+      console.log('[导出] getCurrentExportDefaults: 无当前设计文件，返回默认', {
+        projectName: 'my_project',
+        exportDir: '.',
+      })
       return { projectName: 'my_project', exportDir: '.' }
     }
     const dir = path.dirname(currentFilePath)
     let exportDir = path.relative(root, dir)
     if (!exportDir || exportDir.startsWith('..')) exportDir = '.'
-    const projectName = path.basename(currentFilePath, path.extname(currentFilePath)) || 'my_project'
+    const projectName =
+      path.basename(currentFilePath, path.extname(currentFilePath)) ||
+      'my_project'
     const res = { projectName, exportDir }
-    console.log('[导出] getCurrentExportDefaults', { currentFilePath, root, res })
+    console.log('[导出] getCurrentExportDefaults', {
+      currentFilePath,
+      root,
+      res,
+    })
     return res
   })
 
@@ -207,10 +248,17 @@ function registerHandlers(messageApiInstance, context) {
     if (uri && uri[0]) {
       const selected = uri[0].fsPath
       const relative = path.relative(root, selected)
-      const result = (relative && relative !== '..' && !relative.startsWith('..'))
-        ? { path: relative, fullPath: selected }
-        : (!relative || relative === '.') ? { path: '.', fullPath: root } : {}
-      console.log('[导出] selectExportDir: 用户选择结果', { selected, relative, result })
+      const result =
+        relative && relative !== '..' && !relative.startsWith('..')
+          ? { path: relative, fullPath: selected }
+          : !relative || relative === '.'
+            ? { path: '.', fullPath: root }
+            : {}
+      console.log('[导出] selectExportDir: 用户选择结果', {
+        selected,
+        relative,
+        result,
+      })
       return result.path != null ? result : {}
     }
     console.log('[导出] selectExportDir: 用户取消或无效选择')
@@ -219,7 +267,8 @@ function registerHandlers(messageApiInstance, context) {
 
   // 将导出相对路径解析为工作区内的完整路径（供前端展示）
   messageApiInstance.registerHandler('getExportFullPath', (data) => {
-    const basePath = data && data.basePath != null ? String(data.basePath).trim() : ''
+    const basePath =
+      data && data.basePath != null ? String(data.basePath).trim() : ''
     if (!basePath) {
       console.log('[导出] getExportFullPath: basePath 为空')
       return { fullPath: '' }
@@ -229,6 +278,35 @@ function registerHandlers(messageApiInstance, context) {
     const fullPath = full.startsWith(root) ? full : root
     console.log('[导出] getExportFullPath', { basePath, root, fullPath })
     return { fullPath }
+  })
+
+  // 启动接口代理调试服务
+  messageApiInstance.registerHandler('debug', async (data) => {
+    const proxy = data?.proxy && typeof data.proxy === 'object' ? data.proxy : {}
+    const port = await startProxyServer(proxy)
+    return { port }
+  })
+
+  // 停止接口代理调试服务
+  messageApiInstance.registerHandler('stopDebug', async () => {
+    await stopProxyServer()
+    return { success: true }
+  })
+
+  // 通过 extension host 转发 HTTP 请求（绕过 webview 的 CSP/CORS 限制）
+  messageApiInstance.registerHandler('httpRequest', async (data) => {
+    const { url, method = 'GET', headers = {}, body } = data ?? {}
+
+    if (!url) return { error: '缺少 url 参数' }
+
+    const res = await axios({
+      url,
+      method: method.toUpperCase(),
+      headers: { 'Accept-Encoding': 'identity', ...headers },
+      data: body,
+    })
+    console.log('proxy', res)
+    return res.data
   })
 
   // 获取当前聚焦的元素信息
@@ -255,9 +333,11 @@ function registerHandlers(messageApiInstance, context) {
 
   // 根据出码 results 结构在工作区生成多文件/目录；支持 projectMode 产出 HTML + Vite 项目（样式由出码侧处理）
   messageApiInstance.registerHandler('writeWorkspaceFiles', async (data) => {
-    const basePath = (data && data.basePath) != null ? String(data.basePath) : ''
+    const basePath =
+      (data && data.basePath) != null ? String(data.basePath) : ''
     let results = data && data.results
-    if (!Array.isArray(results)) return { error: '缺少 results 参数（需为数组）' }
+    if (!Array.isArray(results))
+      return { error: '缺少 results 参数（需为数组）' }
     if (data.projectMode) {
       results = wrapResultsAsProject(results)
     }
@@ -266,4 +346,3 @@ function registerHandlers(messageApiInstance, context) {
 }
 
 module.exports = registerHandlers
-

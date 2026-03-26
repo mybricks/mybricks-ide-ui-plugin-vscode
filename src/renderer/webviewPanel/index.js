@@ -116,6 +116,7 @@ class WebviewPanel {
             { webviewPort: 20000, extensionHostPort: 20000 },
             { webviewPort: 3000, extensionHostPort: 3000 },
             { webviewPort: 8080, extensionHostPort: 8080 },
+            { webviewPort: 19001, extensionHostPort: 19001 },
           ],
           enableCommandUris: true,
         }
@@ -144,6 +145,10 @@ class WebviewPanel {
         this.panelsByFilePath.delete(key)
         this.pendingByFilePath.delete(key) // 清除 pending，否则再次打开会拿到已失效的 promise
         viewStateDisposable.dispose()
+        if (this.panelsByFilePath.size === 0) {
+          const { stopProxyServer } = require('../../proxy-server')
+          stopProxyServer().catch(() => {})
+        }
       })
 
       this.panelsByFilePath.set(key, { panel, messageApiInstance })
