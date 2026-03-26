@@ -20,6 +20,8 @@ class WebviewManager extends EventEmitter {
     this.currentFilePath = null
     /** 由 vscode:// URI 传入的待打开路径，供 openIDE 命令一次性消费 */
     this.pendingFilePathFromUri = null
+    /** @type {Set<string>} 正在进行调试的面板 key 集合 */
+    this.debuggingPanels = new Set()
   }
 
   /**
@@ -54,6 +56,7 @@ class WebviewManager extends EventEmitter {
   unregisterPanel(filePath) {
     const key = this._normalize(filePath)
     this.panelMap.delete(key)
+    this.debuggingPanels.delete(key)
     if (this._normalize(this.currentFilePath) === key) {
       // 切换到最后一个剩余面板（如果有）
       const last = [...this.panelMap.values()].pop()
@@ -62,6 +65,30 @@ class WebviewManager extends EventEmitter {
   }
 
   // ─── 查询 ─────────────────────────────────────────────────────────────────
+
+  /**
+   * 标记指定面板开始调试
+   * @param {string} filePath
+   */
+  addDebuggingPanel(filePath) {
+    this.debuggingPanels.add(this._normalize(filePath))
+  }
+
+  /**
+   * 移除指定面板的调试标记
+   * @param {string} filePath
+   */
+  removeDebuggingPanel(filePath) {
+    this.debuggingPanels.delete(this._normalize(filePath))
+  }
+
+  /**
+   * 是否还有任意面板处于调试状态
+   * @returns {boolean}
+   */
+  hasDebuggingPanel() {
+    return this.debuggingPanels.size > 0
+  }
 
   /**
    * 获取当前"激活"文件对应的面板

@@ -20,21 +20,22 @@ const {
 } = require('../utils/workspaceFiles')
 const { wrapResultsAsProject } = require('../utils/projectModeOutput')
 const { STATE_KEYS } = require('../utils/constants')
+const { getInstance: getWebviewManager } = require('./manager/webviewManager')
 
 /**
  * 注册所有事件处理器
  * @param {MessageAPI} messageApiInstance - 消息 API 实例
  * @param {vscode.ExtensionContext} context - 扩展上下文
  */
-function registerHandlers(messageApiInstance, context) {
+function registerHandlers(messageApiInstance, context, filePath) {
   // 在系统文件管理器中定位文件（macOS: Finder，Windows: 资源管理器）
   messageApiInstance.registerHandler('revealInOS', async (data) => {
-    const filePath = data?.filePath
-    if (!filePath) return
-    if (fs.existsSync(filePath)) {
+    const targetPath = data?.filePath
+    if (!targetPath) return
+    if (fs.existsSync(targetPath)) {
       await vscode.commands.executeCommand(
         'revealFileInOS',
-        vscode.Uri.file(filePath),
+        vscode.Uri.file(targetPath),
       )
     }
   })
@@ -280,16 +281,29 @@ function registerHandlers(messageApiInstance, context) {
     return { fullPath }
   })
 
+  const validFilePath = typeof filePath === 'string' && filePath.trim() ? filePath : null
+
   // 启动接口代理调试服务
   messageApiInstance.registerHandler('debug', async (data) => {
     const proxy = data?.proxy && typeof data.proxy === 'object' ? data.proxy : {}
     const port = await startProxyServer(proxy)
+    if (validFilePath) {
+      getWebviewManager().addDebuggingPanel(validFilePath)
+    }
     return { port }
   })
 
   // 停止接口代理调试服务
   messageApiInstance.registerHandler('stopDebug', async () => {
-    await stopProxyServer()
+    if (!validFilePath) {
+      await stopProxyServer()
+      return { success: true }
+    }
+    const webviewManager = getWebviewManager()
+    webviewManager.removeDebuggingPanel(validFilePath)
+    if (!webviewManager.hasDebuggingPanel()) {
+      await stopProxyServer()
+    }
     return { success: true }
   })
 

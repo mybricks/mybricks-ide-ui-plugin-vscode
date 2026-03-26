@@ -13,7 +13,7 @@ let serverInstance = null
  */
 async function startProxyServer(proxy = {}) {
   if (serverInstance) {
-    await stopProxyServer()
+    return PROXY_PORT
   }
 
   const app = express()

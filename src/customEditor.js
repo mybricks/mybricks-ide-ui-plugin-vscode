@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const vscode = require('vscode')
+const { stopProxyServer } = require('./proxy-server')
 const MessageAPI = require('../utils/messageApi')
 const registerHandlers = require('./registerHandler')
 const { getInstance: getWebviewManager } = require('./manager/webviewManager')
@@ -98,9 +99,10 @@ class MyBricksEditorProvider {
       this.documentMap.delete(filePath)
       webviewManager.unregisterPanel(filePath)
       messageApiInstance.dispose()
-      // 只有最后一个 .ui 面板关闭时，才恢复面包屑导航
+      // 只有最后一个 .ui 面板关闭时，才恢复面包屑导航并停止代理服务
       if (webviewManager.panelMap.size === 0) {
         vscode.workspace.getConfiguration().update('breadcrumbs.enabled', true, vscode.ConfigurationTarget.Global)
+        stopProxyServer().catch(() => {})
       }
     })
 
