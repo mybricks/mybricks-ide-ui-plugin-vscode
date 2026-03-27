@@ -19,11 +19,22 @@ function generateFileId() {
  * @returns {{ content: Object, added: boolean }} added=true 表示本次新生成了 fileId
  */
 function ensureMetaFileId(content) {
-  if (content && typeof content === 'object' && typeof content.meta?.fileId === 'string' && content.meta.fileId.trim()) {
+  if (
+    content &&
+    typeof content === 'object' &&
+    typeof content.meta?.fileId === 'string' &&
+    content.meta.fileId.trim()
+  ) {
     return { content, added: false }
   }
-  const existingMeta = (content && typeof content.meta === 'object' && content.meta !== null) ? content.meta : {}
-  const newContent = { ...content, meta: { ...existingMeta, fileId: generateFileId() } }
+  const existingMeta =
+    content && typeof content.meta === 'object' && content.meta !== null
+      ? content.meta
+      : {}
+  const newContent = {
+    ...content,
+    meta: { ...existingMeta, fileId: generateFileId() },
+  }
   return { content: newContent, added: true }
 }
 
@@ -83,9 +94,15 @@ function saveFileContent(context, data) {
  * @param {boolean} [silent=false] - true 时静默保存，不弹右下角成功提示
  * @returns {Promise<{ success: boolean, path?: string, message?: string }>}
  */
-async function saveProject(context, saveContent, currentFilePath, silent = false) {
+async function saveProject(
+  context,
+  saveContent,
+  currentFilePath,
+  silent = false,
+) {
   try {
-    let savePath = currentFilePath && fs.existsSync(currentFilePath) ? currentFilePath : null
+    let savePath =
+      currentFilePath && fs.existsSync(currentFilePath) ? currentFilePath : null
 
     if (!savePath) {
       const preferredExt = getPreferredExtension()
@@ -119,8 +136,15 @@ async function saveProject(context, saveContent, currentFilePath, silent = false
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     // 确保 meta.fileId 存在，若无则生成
     const { content: contentToSave } = ensureMetaFileId(saveContent)
+
     fs.writeFileSync(savePath, JSON.stringify(contentToSave, null, 2), 'utf-8')
-    if (!silent) vscode.window.showInformationMessage(`文件已保存: ${path.basename(savePath)}`)
+
+    if (!silent) {
+      vscode.window.setStatusBarMessage(
+        `$(check) 文件已保存: ${path.basename(savePath)}`,
+        5000,
+      )
+    }
     return { success: true, path: savePath }
   } catch (error) {
     vscode.window.showErrorMessage(`保存项目失败: ${error.message}`)
