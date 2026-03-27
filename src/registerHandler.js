@@ -149,7 +149,12 @@ function registerHandlers(messageApiInstance, context, filePath) {
     const dir = path.dirname(savePath)
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(savePath, content, 'utf-8')
-    vscode.window.showInformationMessage(`已保存: ${path.basename(savePath)}`)
+
+    vscode.window.showInformationMessage(`已保存: ${path.basename(savePath)}`, '在文件系统中打开').then((action) => {
+      if (action === '在文件系统中打开') {
+        vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(savePath))
+      }
+    })
     return { success: true, path: savePath }
   })
 
