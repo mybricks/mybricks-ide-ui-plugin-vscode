@@ -99,10 +99,11 @@ class MyBricksEditorProvider {
       this.documentMap.delete(filePath)
       webviewManager.unregisterPanel(filePath)
       messageApiInstance.dispose()
-      // 只有最后一个 .ui 面板关闭时，才恢复面包屑导航并停止代理服务
+      // 关闭该 webview 对应的代理服务实例（端口隔离，各自独立管理）
+      stopProxyServer(filePath).catch(() => {})
+      // 所有面板都关闭时，恢复面包屑导航
       if (webviewManager.panelMap.size === 0) {
         vscode.workspace.getConfiguration().update('breadcrumbs.enabled', true, vscode.ConfigurationTarget.Global)
-        stopProxyServer().catch(() => {})
       }
     })
 
