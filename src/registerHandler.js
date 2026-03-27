@@ -286,7 +286,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
   // 启动接口代理调试服务
   messageApiInstance.registerHandler('debug', async (data) => {
     const proxy = data?.proxy && typeof data.proxy === 'object' ? data.proxy : {}
-    const port = await startProxyServer(proxy)
+    const port = await startProxyServer(proxy, validFilePath)
     if (validFilePath) {
       getWebviewManager().addDebuggingPanel(validFilePath)
     }
@@ -295,15 +295,11 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 停止接口代理调试服务
   messageApiInstance.registerHandler('stopDebug', async () => {
-    if (!validFilePath) {
-      await stopProxyServer()
-      return { success: true }
-    }
     const webviewManager = getWebviewManager()
-    webviewManager.removeDebuggingPanel(validFilePath)
-    if (!webviewManager.hasDebuggingPanel()) {
-      await stopProxyServer()
+    if (validFilePath) {
+      webviewManager.removeDebuggingPanel(validFilePath)
     }
+    await stopProxyServer(validFilePath)
     return { success: true }
   })
 
@@ -320,7 +316,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
       data: body,
       params,
     })
-    console.log('proxy', res)
+
     return {
       data: res.data,
       headers: res.headers,

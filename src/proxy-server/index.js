@@ -2,18 +2,26 @@ const http = require('http')
 const express = require('express')
 const { createProxyMiddleware } = require('http-proxy-middleware')
 
-const PROXY_PORT = 19001
-
-let serverInstance = null
+// Map<filePath | '__default__', { server: http.Server, port: number }>
+const serverMap = new Map()
 
 /**
- * 启动代理服务
+ * 启动代理服务（按 filePath 隔离，配置变更时重启该实例）
  * @param {Record<string, {target: string, headers?: object, changeOrigin?: boolean}>} proxy
+ * @param {string|null} filePath - webview 对应的文件路径，null 时使用 '__default__' key
  * @returns {Promise<number>} 返回监听的端口号
  */
-async function startProxyServer(proxy = {}) {
-  if (serverInstance) {
-    return PROXY_PORT
+async function startProxyServer(proxy = {}, filePath = null) {
+  const key = filePath ?? '__default__'
+
+  const existing = serverMap.get(key)
+  if (existing) {
+    await new Promise((resolve) => {
+      existing.server.close(() => {
+        serverMap.delete(key)
+        resolve()
+      })
+    })
   }
 
   const app = express()
@@ -36,10 +44,11 @@ async function startProxyServer(proxy = {}) {
 
   return new Promise((resolve, reject) => {
     const server = http.createServer(app)
-    server.listen(PROXY_PORT, '127.0.0.1', () => {
-      serverInstance = server
-      console.log(`[ProxyServer] 代理服务已启动，端口: ${PROXY_PORT}`)
-      resolve(PROXY_PORT)
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port
+      serverMap.set(key, { server, port })
+      console.log(`[ProxyServer] 代理服务已启动，key: ${key}，端口: ${port}`)
+      resolve(port)
     })
     server.on('error', (err) => {
       console.error('[ProxyServer] 启动失败:', err.message)
@@ -49,26 +58,31 @@ async function startProxyServer(proxy = {}) {
 }
 
 /**
- * 停止代理服务
+ * 停止指定 filePath 对应的代理服务
+ * @param {string|null} filePath
  * @returns {Promise<void>}
  */
-async function stopProxyServer() {
-  if (!serverInstance) return
+async function stopProxyServer(filePath = null) {
+  const key = filePath ?? '__default__'
+  const existing = serverMap.get(key)
+  if (!existing) return
   return new Promise((resolve) => {
-    serverInstance.close(() => {
-      serverInstance = null
-      console.log('[ProxyServer] 代理服务已停止')
+    existing.server.close(() => {
+      serverMap.delete(key)
+      console.log(`[ProxyServer] 代理服务已停止，key: ${key}`)
       resolve()
     })
   })
 }
 
 /**
- * 获取当前代理服务端口（未启动时返回 null）
+ * 获取指定 filePath 对应的代理服务端口（未启动时返回 null）
+ * @param {string|null} filePath
  * @returns {number|null}
  */
-function getPort() {
-  return serverInstance ? PROXY_PORT : null
+function getPort(filePath = null) {
+  const key = filePath ?? '__default__'
+  return serverMap.get(key)?.port ?? null
 }
 
 module.exports = { startProxyServer, stopProxyServer, getPort }
