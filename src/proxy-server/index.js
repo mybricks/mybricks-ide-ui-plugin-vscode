@@ -1,4 +1,5 @@
 const http = require('http')
+const https = require('https')
 const express = require('express')
 const { createProxyMiddleware } = require('http-proxy-middleware')
 
@@ -25,6 +26,50 @@ async function startProxyServer(proxy = {}, filePath = null) {
   }
 
   const app = express()
+
+  // 通用绝对 URL 代理端点：/__absolute_proxy__?url=https://...
+  // 用于前端直接传入完整域名+路径的请求，代理服务器负责转发并处理 CORS
+  app.use('/__absolute_proxy__', (req, res) => {
+    const targetUrl = req.query.url
+    if (!targetUrl || !/^https?:\/\//.test(targetUrl)) {
+      res.status(400).json({ error: '缺少有效的 url 查询参数' })
+      return
+    }
+
+    const parsedUrl = new URL(targetUrl)
+    const isHttps = parsedUrl.protocol === 'https:'
+    const lib = isHttps ? https : http
+
+    // 透传原始请求头，移除 host 避免目标服务器拒绝
+    const forwardHeaders = Object.assign({}, req.headers)
+    delete forwardHeaders['host']
+    delete forwardHeaders['connection']
+
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: req.method,
+      headers: forwardHeaders,
+    }
+
+    const proxyReq = lib.request(options, (proxyRes) => {
+      res.status(proxyRes.statusCode)
+      // 透传响应头，添加 CORS 头
+      Object.entries(proxyRes.headers).forEach(([k, v]) => {
+        if (k.toLowerCase() !== 'transfer-encoding') res.setHeader(k, v)
+      })
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      proxyRes.pipe(res)
+    })
+
+    proxyReq.on('error', (err) => {
+      console.error('[ProxyServer] /__absolute_proxy__ 转发失败:', err.message)
+      if (!res.headersSent) res.status(502).json({ error: err.message })
+    })
+
+    req.pipe(proxyReq)
+  })
 
   for (const [pathPattern, rule] of Object.entries(proxy)) {
     const { target, headers = {}, changeOrigin = true } = rule

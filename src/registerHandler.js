@@ -11,7 +11,7 @@ const {
 } = require('../utils/saveProject')
 const { getWorkspaceFolder } = require('../utils/utils')
 const { exportProject } = require('../utils/exportProject')
-const { stopProxyServer, startProxyServer } = require('./proxy-server')
+const { stopProxyServer, startProxyServer, getPort } = require('./proxy-server')
 const {
   readWorkspaceFile,
   writeWorkspaceFile,
@@ -309,13 +309,34 @@ function registerHandlers(messageApiInstance, context, filePath) {
   })
 
   // 通过 extension host 转发 HTTP 请求（绕过 webview 的 CSP/CORS 限制）
+  // 支持两种模式：
+  //   1. 相对路径（如 /api/xxx）→ 走代理服务器：http://127.0.0.1:{port}/api/xxx
+  //   2. 绝对 URL（如 https://example.com/api/xxx）→ 通过代理服务器的 /__absolute_proxy__ 端点转发
   messageApiInstance.registerHandler('httpRequest', async (data) => {
     const { url, method = 'GET', headers = {}, body, params } = data ?? {}
 
     if (!url) return { error: '缺少 url 参数' }
 
+    let finalUrl = url
+
+    if (/^https?:\/\//.test(url)) {
+      // 绝对 URL：通过代理服务器的 /__absolute_proxy__ 端点转发，避免 CORS 限制
+      const port = getPort(validFilePath)
+      if (port) {
+        const encodedUrl = encodeURIComponent(url)
+        finalUrl = `http://127.0.0.1:${port}/__absolute_proxy__?url=${encodedUrl}`
+      }
+      // 若代理服务未启动，则直接用原始 URL 发请求（降级）
+    } else if (url.startsWith('/')) {
+      // 相对路径：转发到代理服务器
+      const port = getPort(validFilePath)
+      if (port) {
+        finalUrl = `http://127.0.0.1:${port}${url}`
+      }
+    }
+
     const res = await axios({
-      url,
+      url: finalUrl,
       method: method.toUpperCase(),
       headers: { 'Accept-Encoding': 'identity', ...headers },
       data: body,
