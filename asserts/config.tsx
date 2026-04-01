@@ -5,7 +5,6 @@
 import React from 'react'
 import { createAIPlugin, installAIService } from './ai/mcp'
 import ExportCode from './components/export-code'
-import TokenConfig from './components/token-config'
 import FilePath from './components/file-path'
 import { loadManifest } from './manifestLoader'
 
@@ -39,7 +38,6 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
       getAiPlugin({
         key: fileResult?.content?.meta?.fileId ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         useInfra: aiChannel === 'infra',
-        getToken: () => vsCodeMessage.call('getAIToken').then((t: string) => t ?? '').catch(() => ''),
         onDownload: (params) =>
           vsCodeMessage.call('downloadFile', { name: params.name, content: params.content }),
         codingConfig: codingConfig ?? undefined,
@@ -239,13 +237,6 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
               render: () => <FilePath />
             }
           },
-          ...(aiChannel === 'mybricks' ? [{
-            title: 'AI请求凭证',
-            type: 'editorRender',
-            options: {
-              render: () => <TokenConfig />
-            }
-          }] : [])
         ]
       },
     },

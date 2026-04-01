@@ -1,14 +1,12 @@
 export type OnDownloadParams = {
   name: string
   content: string
-  // 后续可扩展更多字段，如 mimeType、encoding 等
 }
 
 export type GetAiPluginOptions = {
   key: string
-  /** true → 走 Infra 通道（默认）；false → 走 MyBricks 通道（需要用户配置 token） */
+  /** true → Infra 通道可用（由外部 checkInfraAvailable 决定）；false → 仅 mybricks / custom */
   useInfra?: boolean
-  getToken: () => Promise<string>
   /** VSCode 下由 extension 弹窗选择保存路径并写入文件；支持异步 */
   onDownload?: (params: OnDownloadParams) => void | Promise<void>
   /** 三方库 + 主题配置（从 CDN 获取的 codingConfig） */
@@ -18,17 +16,55 @@ export type GetAiPluginOptions = {
   }
 }
 
-export default ({ key, useInfra = true, getToken, onDownload, codingConfig }: GetAiPluginOptions) => {
+/** 从 globalState 读取 AI 设置（channel、token、custom 配置） */
+async function getAISetting(): Promise<Record<string, any>> {
+  const vsCodeMessage = (window as any).webViewMessageApi
+  return vsCodeMessage?.call('getAISetting').catch(() => null) ?? {}
+}
+
+/**
+ * 根据已保存的 settings 和 useInfra 决定最终生效的渠道。
+ * infra 在 useInfra=false 时不可用，自动降级到 mybricks。
+ */
+function resolveChannel(settings: Record<string, any>, useInfra: boolean): 'infra' | 'mybricks' | 'custom' {
+  const saved = settings?.channel as string | undefined
+  if (saved === 'infra') return useInfra ? 'infra' : 'mybricks'
+  if (saved === 'custom') return 'custom'
+  // 未配置时跟随 useInfra
+  return useInfra ? 'infra' : 'mybricks'
+}
+
+export default ({ key, useInfra = true, onDownload, codingConfig }: GetAiPluginOptions) => {
   const PluginAI = (window as any).MyBricksPluginAI || {}
-  const { default: AIPlugin, createMyBricksAIRequest, createInfraAIRequest, createInfraAIOnUpload, fileFormat } = PluginAI
+  const {
+    default: AIPlugin,
+    createMyBricksAIRequest,
+    createInfraAIRequest,
+    createInfraAIOnUpload,
+    createCustomRequest,
+    fileFormat,
+  } = PluginAI
 
   if (!AIPlugin) {
     console.warn('[MyBricks] window.MyBricksPluginAI is not loaded. Ensure plugin-ai is loaded via manifest.')
     return null
   }
 
-  const requestMybricks = createMyBricksAIRequest({ getToken })
-  const requestInfra = createInfraAIRequest();
+  // 三种渠道的请求函数在插件初始化时各创建一次，config getter 动态读取 globalState
+  const requestMybricks = createMyBricksAIRequest({
+    getToken: () => getAISetting().then((s) => s?.mybricksAiToken ?? '').catch(() => ''),
+  })
+  const requestInfra = useInfra ? createInfraAIRequest() : null
+  const requestCustom = typeof createCustomRequest === 'function'
+    ? createCustomRequest({
+        provider: () => getAISetting().then((s) => s?.customProvider ?? 'openai'),
+        apiUrl: () => getAISetting().then((s) => s?.customApiUrl ?? ''),
+        apiKey: () => getAISetting().then((s) => s?.customApiKey ?? ''),
+        model: () => getAISetting().then((s) => s?.customModel),
+      })
+    : null
+  const infraUpload = useInfra ? createInfraAIOnUpload() : null
+
   return AIPlugin({
     isMutiCanvas: false,
     prompts: {
@@ -54,9 +90,20 @@ export default ({ key, useInfra = true, getToken, onDownload, codingConfig }: Ge
         }
       }
     },
-    onUpload: useInfra ? createInfraAIOnUpload() : undefined,
-    onRequest: (params) => {
-      return useInfra ? requestInfra(params) : requestMybricks(params)
+    onUpload: infraUpload
+      ? async (params: any) => {
+          const settings = await getAISetting()
+          const channel = resolveChannel(settings, useInfra)
+          if (channel === 'infra') return infraUpload(params)
+        }
+      : undefined,
+    onRequest: async (params: any) => {
+      const settings = await getAISetting()
+      const channel = resolveChannel(settings, useInfra)
+
+      if (channel === 'infra' && requestInfra) return requestInfra(params)
+      if (channel === 'custom' && requestCustom) return requestCustom(params)
+      return requestMybricks(params)
     },
     onDownload,
     codingMode: true,

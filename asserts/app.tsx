@@ -28,7 +28,9 @@ import {
   VerticalAlignBottomOutlined,
   CloseOutlined,
   InfoCircleOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
+import packageJson from '../package.json'
 import ExportCode from './components/export-code'
 import DepInfoPopoverContent from './components/dep-info-popover'
 import { config as getDesignerConfig } from './config'
@@ -198,7 +200,7 @@ export default function App() {
     return dotIndex > 0 ? name.slice(0, dotIndex) : name
   }, [])
 
-  // 是否已配置 AI Token（用于展示横幅），监听 aiTokenChanged 更新
+  // 是否已配置 AI Token（用于展示横幅）
   const [hasAIToken, setHasAIToken] = useState(true)
   const [aiTokenBannerClosed, setAITokenBannerClosed] = useState(false)
 
@@ -206,6 +208,70 @@ export default function App() {
   const [aiChannel, setAIChannel] = useState<'infra' | 'mybricks' | null>(null)
   // Infra 是否可用（用于判断是否允许手动切换渠道）
   const [infraAvailable, setInfraAvailable] = useState(false)
+
+  /** 根据 globalState 里的 AI 设置刷新 hasAIToken 状态 */
+  const refreshHasToken = useCallback(
+    async (settings?: Record<string, any>) => {
+      const s = settings ?? (await vsCodeMessage?.call('getAISetting').catch(() => null) ?? {})
+      const channel: string = s?.channel ?? (infraAvailable ? 'infra' : 'mybricks')
+      if (channel === 'infra') {
+        setHasAIToken(true)
+      } else if (channel === 'mybricks') {
+        setHasAIToken(typeof s?.mybricksAiToken === 'string' && s.mybricksAiToken.trim() !== '')
+      } else {
+        // custom
+        setHasAIToken(typeof s?.customApiKey === 'string' && s.customApiKey.trim() !== '')
+      }
+    },
+    [infraAvailable],
+  )
+
+  /** 打开 AI 设置弹窗（gear icon） */
+  const openAiSetting = useCallback(async () => {
+    const { openSetting } = (window as any).MyBricksPluginAI || {}
+    if (typeof openSetting !== 'function') return
+
+    const savedSettings = await vsCodeMessage?.call('getAISetting').catch(() => null) ?? {}
+    // 记录弹窗打开时的渠道，关闭时对比是否变化
+    const prevChannel: string = savedSettings?.channel ?? (infraAvailable ? 'infra' : 'mybricks')
+
+    const items: Array<{ label: string; value: string; type: 'text' | 'link' }> = []
+    if (appVersion) items.push({ label: '资源版本', value: `v${appVersion}`, type: 'text' })
+    if (designerVersion) items.push({ label: '设计器', value: `v${designerVersion}`, type: 'text' })
+    if (pluginAIVersion) items.push({ label: 'AI 插件', value: `v${pluginAIVersion}`, type: 'text' })
+    if (fileId) items.push({ label: '文件 ID', value: fileId, type: 'text' })
+
+    openSetting({
+      value: savedSettings,
+      version: packageJson.version ?? undefined,
+      aboutItems: items,
+      channels: infraAvailable ? ['infra', 'mybricks', 'custom'] : ['mybricks', 'custom'],
+      onSave: async (newValue: Record<string, any>) => {
+        await vsCodeMessage?.call('setAISetting', newValue).catch(() => {})
+
+        const newChannel: string = newValue?.channel ?? (infraAvailable ? 'infra' : 'mybricks')
+        if (newChannel !== prevChannel) {
+          // 渠道切换：弹出 VSCode 原生确认弹窗
+          const result = await vsCodeMessage?.call('confirmChannelSwitch').catch(() => ({ action: 'cancel' }))
+
+          if (result?.action === 'cancel') {
+            // 用户取消（关闭弹窗）：settings 已保存，不做任何事
+            return
+          }
+
+          // 保存并刷新：先静默保存当前设计文件
+          await saveRef.current?.()
+
+          // 同步 channelOverride 供重载后 useInfra 判断使用，然后重刷页面
+          const overrideVal = newChannel === 'infra' ? null : 'mybricks'
+          await vsCodeMessage?.call('setAIChannelOverride', { channel: overrideVal }).catch(() => {})
+          vsCodeMessage?.call('reloadWebview').catch(() => {})
+        } else {
+          refreshHasToken(newValue)
+        }
+      },
+    })
+  }, [appVersion, designerVersion, pluginAIVersion, fileId, infraAvailable, refreshHasToken])
 
   // 0. 启动时立即获取当前文件名和文件修改时间（不等 SPADesigner 加载）
   useEffect(() => {
@@ -334,11 +400,23 @@ export default function App() {
               : 'mybricks'
         setAIChannel(effectiveChannel)
 
-        if (effectiveChannel !== 'infra') {
-          // Infra 不可用，检查用户是否配置了 MyBricks token
-          const token =
-            (await vsCodeMessage?.call?.('getAIToken').catch(() => '')) ?? ''
-          setHasAIToken(typeof token === 'string' && token.trim() !== '')
+        // 从 globalState 读 AI 设置，检查当前渠道是否已配置凭证
+        const savedSettings =
+          (await vsCodeMessage?.call?.('getAISetting').catch(() => null)) ?? {}
+        const settingChannel: string =
+          savedSettings?.channel ?? (infraOk ? 'infra' : 'mybricks')
+        if (settingChannel === 'infra') {
+          setHasAIToken(true)
+        } else if (settingChannel === 'mybricks') {
+          setHasAIToken(
+            typeof savedSettings?.mybricksAiToken === 'string' &&
+              savedSettings.mybricksAiToken.trim() !== '',
+          )
+        } else {
+          setHasAIToken(
+            typeof savedSettings?.customApiKey === 'string' &&
+              savedSettings.customApiKey.trim() !== '',
+          )
         }
 
         setSPADesigner(() => designer)
@@ -362,17 +440,6 @@ export default function App() {
     })
   }, [SPADesigner, aiChannel])
 
-  const refreshAIToken = useCallback(() => {
-    // 只有 MyBricks 渠道才需要检查 token
-    if (aiChannel !== 'mybricks') return
-    if (!vsCodeMessage?.call) return
-    vsCodeMessage
-      .call('getAIToken')
-      .then((token: string) => {
-        setHasAIToken(typeof token === 'string' && token.trim() !== '')
-      })
-      .catch(() => setHasAIToken(false))
-  }, [aiChannel])
 
   // 手动切换渠道：持久化选择 → reload WebView
   const switchToMybricks = useCallback(async () => {
@@ -443,14 +510,8 @@ export default function App() {
 
   useEffect(() => {
     if (!initSuccess) return
-    refreshAIToken()
-  }, [initSuccess, refreshAIToken])
-
-  useEffect(() => {
-    if (!vsCodeMessage?.on) return
-    const unsub = vsCodeMessage.on('aiTokenChanged', refreshAIToken)
-    return () => unsub?.()
-  }, [refreshAIToken])
+    refreshHasToken()
+  }, [initSuccess, refreshHasToken])
 
   // MCP 状态与监听、handler 注册（不默认加载；开启但服务/ skill 未就绪时在设计器内提示）
   const { mcpEnabled, mcpServerReady } = useMCP(vsCodeMessage, {
@@ -606,7 +667,7 @@ export default function App() {
             createPortal(
               <>
                 <SaveTimeDisplay />
-                <Popover
+                {/* <Popover
                   trigger="click"
                   placement="bottomRight"
                   arrow={false}
@@ -639,7 +700,16 @@ export default function App() {
                       cursor: 'pointer',
                     }}
                   />
-                </Popover>
+                </Popover> */}
+                <SettingOutlined
+                  style={{
+                    color: '#9ca3af',
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    marginLeft: 6,
+                  }}
+                  onClick={openAiSetting}
+                />
                 {/* <div
                   style={{
                     display: 'flex',
@@ -708,27 +778,13 @@ export default function App() {
                     className="ai-token-banner-action"
                     role="button"
                     tabIndex={0}
-                    onClick={async () => {
-                      try {
-                        if (vsCodeMessage?.call) {
-                          await vsCodeMessage.call('openAISettings')
-                        } else {
-                          message.info(
-                            '请打开设置，搜索「MyBricks」→ AI 请求凭证',
-                          )
-                        }
-                      } catch {
-                        message.info(
-                          '请打开设置，搜索「MyBricks」→ AI 请求凭证',
-                        )
-                      }
-                    }}
+                    onClick={openAiSetting}
                     onKeyDown={(e) =>
                       e.key === 'Enter' &&
                       (e.currentTarget as HTMLElement).click()
                     }
                   >
-                    去配置
+                    点击右上角 ⚙ 配置
                   </span>
                   <span
                     className="ai-token-banner-close"

@@ -232,6 +232,37 @@ function registerHandlers(messageApiInstance, context, filePath) {
     return res
   })
 
+  // 切换 AI 渠道前弹出 VSCode 原生确认弹窗，返回用户的选择
+  messageApiInstance.registerHandler('confirmChannelSwitch', async () => {
+    const choice = await vscode.window.showWarningMessage(
+      '切换 AI 渠道需要刷新设计器，当前未保存的内容将会丢失。',
+      { modal: true },
+      '保存并刷新'
+    )
+    if (choice === '保存并刷新') return { action: 'save_and_reload' }
+    return { action: 'cancel' }
+  })
+
+  // AI 设置（channel、token、custom 配置）存储到 globalState
+  messageApiInstance.registerHandler('getAISetting', async () => {
+    const existing = context.globalState.get('mybricks.aiSetting', null)
+    // 兼容旧版：首次迁移时把 VSCode settings 里的 mybricks.ai.token 写入新格式
+    if (!existing?.mybricksAiToken) {
+      const oldToken = vscode.workspace.getConfiguration('mybricks').get('ai.token')
+      if (typeof oldToken === 'string' && oldToken.trim()) {
+        const migrated = { ...(existing ?? {}), mybricksAiToken: oldToken }
+        await context.globalState.update('mybricks.aiSetting', migrated)
+        return migrated
+      }
+    }
+    return existing
+  })
+
+  messageApiInstance.registerHandler('setAISetting', async (data) => {
+    await context.globalState.update('mybricks.aiSetting', data ?? null)
+    return { success: true }
+  })
+
   // 检查路径是否存在（相对工作区根的路径）
   messageApiInstance.registerHandler('checkPathExists', (data) => {
     const root = getWorkspaceRoot()
