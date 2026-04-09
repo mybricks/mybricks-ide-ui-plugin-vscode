@@ -98,6 +98,30 @@ function SaveTimeDisplay() {
 }
 
 /**
+ * toolbar 容器组件：渲染后通过 onMount 回调将 DOM 节点交回父组件，
+ * 避免依赖 document.getElementById 这类不可靠的 DOM 查询。
+ */
+function ToolbarContainer({ onMount }: { onMount: (el: Element) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (ref.current) onMount(ref.current)
+  }, [])
+  return (
+    <div
+      ref={ref}
+      style={{
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingLeft: 12,
+        paddingRight: 15,
+        display: 'flex',
+      }}
+    />
+  )
+}
+
+/**
  * 动态插入 <script> 标签，加载完成后 resolve
  */
 function loadScript(url: string): Promise<void> {
@@ -631,32 +655,19 @@ export default function App() {
     [currentFileName],
   )
 
+  // SPADesigner onLoad 触发时 toolbar DOM 已渲染完毕，此时挂载 portal
+  const [toolbarPortalRoot, setToolbarPortalRoot] = useState<Element | null>(null)
+
   // toolbar 传给 SPADesigner 的只是一个空容器，内容通过 createPortal 从 App 树注入
   // 这样 SPADesigner 缓存 toolbar 也无所谓，portal 内容始终随 App state 更新
   const toolbarBtns = useMemo(
     () => (
-      <div
-        id="mybricks-toolbar-root"
-        style={{
-          width: '100%',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingLeft: 12,
-          paddingRight: 15,
-          display: 'flex',
-        }}
-      />
+      <ToolbarContainer onMount={setToolbarPortalRoot} />
     ),
     [],
   )
 
-  // SPADesigner onLoad 触发时 toolbar DOM 已渲染完毕，此时挂载 portal
-  const [toolbarPortalRoot, setToolbarPortalRoot] = useState<Element | null>(
-    null,
-  )
-  const onDesignerLoad = useCallback(() => {
-    setToolbarPortalRoot(document.getElementById('mybricks-toolbar-root'))
-  }, [])
+  const onDesignerLoad = useCallback(() => {}, [])
 
   return (
     <ToolbarContext.Provider value={{ lastSavedAt }}>
