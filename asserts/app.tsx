@@ -364,6 +364,7 @@ export default function App() {
         if (!pluginAIUrl && pVer) {
           pluginAIUrl = `https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/plugin-ai/${pVer}/index.umd.js`
         }
+        // pluginAIUrl = 'http://127.0.0.1:5500/packages/plugin/dist/index.umd.js'
 
         const scripts: Promise<void>[] = [loadScript(designerUrl)]
         if (pluginAIUrl) {
@@ -588,10 +589,20 @@ export default function App() {
         const fileResult = await vsCodeMessage.call('getFileContent')
 
         const currentFilePath = fileResult?.path ?? null
+        const currentFileMeta = fileResult?.content?.meta ?? null
+
+        const saveContent = {
+          ...json,
+          // dump() 可能不会带回持久化 meta，先继承文件中的 meta，再让当前导出的 meta 覆盖
+          meta: {
+            ...(currentFileMeta ?? {}),
+            ...(json.meta ?? {}),
+          },
+        }
 
         // 保存 JSON 数据
         const res = await vsCodeMessage.call('saveProject', {
-          saveContent: json,
+          saveContent,
           currentFilePath,
           silent: backendSilent,
         })
