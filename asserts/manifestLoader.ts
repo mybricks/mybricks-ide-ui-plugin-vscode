@@ -31,7 +31,8 @@ export interface Manifest {
 }
 
 /** 远端 manifest CDN 地址（latest 软链，CDN 侧维护） */
-const MANIFEST_CDN_URL = 'https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/latest/manifest.json'
+// const MANIFEST_CDN_URL = 'https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/latest/manifest.json'
+const MANIFEST_CDN_URL = 'https://p4-ec.ecukwai.com/kos/nlav12333/aicode/config/manifest-corp.json'
 
 /**
  * 兜底 manifest：CDN 不可达时使用，直接引用同目录的 manifest.json。

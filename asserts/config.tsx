@@ -59,7 +59,6 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
           console.warn('[comLibLoader] manifest.aiComLib.url 为空，跳过组件库加载')
           return []
         }
-        console.log('>>> aiComLibUrl:', aiComLibUrl)
         return [aiComLibUrl]
       }).catch((err) => {
         console.error('[comLibLoader] 获取 manifest 失败:', err)

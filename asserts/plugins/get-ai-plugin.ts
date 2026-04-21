@@ -38,7 +38,7 @@ export default ({ key, useInfra = true, onDownload, codingConfig }: GetAiPluginO
   const PluginAI = (window as any).MyBricksPluginAI || {}
   const {
     default: AIPlugin,
-    createMyBricksAIRequest,
+    createMyBricksAIRequestSSE,
     createInfraAIRequest,
     createInfraAIOnUpload,
     createCustomRequest,
@@ -51,7 +51,7 @@ export default ({ key, useInfra = true, onDownload, codingConfig }: GetAiPluginO
   }
 
   // 三种渠道的请求函数在插件初始化时各创建一次，config getter 动态读取 globalState
-  const requestMybricks = createMyBricksAIRequest({
+  const requestMybricks = createMyBricksAIRequestSSE({
     getToken: () => getAISetting().then((s) => s?.mybricksAiToken ?? '').catch(() => ''),
   })
   const requestInfra = useInfra ? createInfraAIRequest() : null
