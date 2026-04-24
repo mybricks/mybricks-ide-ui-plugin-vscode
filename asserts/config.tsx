@@ -35,7 +35,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
     //type: 'mpa', // 多页应用模式
     plugins: [
       // createAIPlugin(),
-      getAiPlugin({
+      await getAiPlugin({
         key: fileResult?.content?.meta?.fileId ?? `ai-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         useInfra: aiChannel === 'infra',
         onDownload: (params) =>
