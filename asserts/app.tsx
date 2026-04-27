@@ -172,6 +172,9 @@ export default function App() {
   // 最后一次保存的时间
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
+  // 正在保存中的标志（保存过程中不触发 dirty 标记）
+  const savingRef = useRef(false)
+
   const [exportPopoverVisible, setExportPopoverVisible] = useState(false)
 
   const [debugPort, setDebugPort] = useState<number | null>(null)
@@ -546,11 +549,13 @@ export default function App() {
 
   // 标记已编辑：通知 extension 文档已变脏（VSCode 标签圆点），并触发防抖自动保存
   const markEdited = useCallback(() => {
-    console.log('edited')
     setChanged((c) => c + 1)
 
-    // 通知 extension 内容已变更，由 VSCode CustomEditorProvider 驱动标签脏状态
-    vsCodeMessage?.call('notifyContentChanged', {}).catch(() => {})
+    // 如果正在保存，不触发 dirty 标记（避免死循环）
+    if (!savingRef.current) {
+      // 通知 extension 内容已变更，由 VSCode CustomEditorProvider 驱动标签脏状态
+      vsCodeMessage?.call('notifyContentChanged', {}).catch(() => {})
+    }
 
     // 防抖自动保存（1s 内无新编辑则静默保存，不弹任何提示，仅更新右上角保存时间）
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
@@ -567,8 +572,10 @@ export default function App() {
   // silent=true 时前端静默（不弹 antd 消息）；backendSilent=true 时后端也静默（不弹 VSCode 右下角提示）
   const save = useCallback(
     async (silent = false, backendSilent = false) => {
+      savingRef.current = true // 开始保存，阻止 dirty 标记
       const designer = designerRef.current
       if (!designer) {
+        savingRef.current = false
         if (!silent) message.error('设计器未初始化')
         return
       }
@@ -576,19 +583,21 @@ export default function App() {
         // 直接获取 dump 的 JSON 数据
         const json = designer.dump()
         if (!json) {
+          savingRef.current = false
           if (!silent) message.error('无法获取设计器数据')
           return
         }
 
         if (!vsCodeMessage) {
+          savingRef.current = false
           if (!silent) message.warning('当前环境无法保存，请使用 VSCode 插件')
           return
         }
 
         // 获取当前文件路径
         const fileResult = await vsCodeMessage.call('getFileContent')
-
         const currentFilePath = fileResult?.path ?? null
+
         const currentFileMeta = fileResult?.content?.meta ?? null
 
         const saveContent = {
@@ -606,6 +615,7 @@ export default function App() {
           currentFilePath,
           silent: backendSilent,
         })
+        savingRef.current = false // 保存完成
         if (res?.success) {
           setChanged(0)
           setLastSavedAt(new Date())
@@ -620,7 +630,7 @@ export default function App() {
           message.error(res.message)
         }
       } catch (error) {
-        console.error('保存失败:', error)
+        savingRef.current = false // 出错也要重置
         if (!silent)
           message.error(error instanceof Error ? error.message : '保存失败')
       }

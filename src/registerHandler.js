@@ -63,12 +63,9 @@ function registerHandlers(messageApiInstance, context, filePath) {
   // 注意：需先返回响应，再执行 reload，否则 webview 重建后 response 无法送达前端
   messageApiInstance.registerHandler('reloadWebview', () => {
     setImmediate(() => {
-      const {
-        getInstance: getWebviewManager,
-      } = require('./manager/webviewManager')
       const webviewManager = getWebviewManager()
-      const currentFilePath = webviewManager.getCurrentFilePath()
-      webviewManager.reloadPanel(currentFilePath)
+      // 使用闭包中的 filePath，而非全局状态
+      webviewManager.reloadPanel(filePath)
     })
     return { success: true }
   })
@@ -94,24 +91,8 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 获取低码项目内容（返回 { content, path }，path 为当前项目文件路径，无则 null）
   messageApiInstance.registerHandler('getFileContent', async () => {
-    const {
-      getInstance: getWebviewManager,
-    } = require('./manager/webviewManager')
-    const webviewManager = getWebviewManager()
-    let currentFilePath = webviewManager.getCurrentFilePath()
-    // 若未通过设计文件打开设计器，则尝试从当前活动编辑器或已打开的设计文档取路径
-    if (!currentFilePath) {
-      const activeDoc = vscode.window.activeTextEditor?.document
-      if (activeDoc && isMybricksFile(activeDoc.fileName)) {
-        currentFilePath = activeDoc.uri.fsPath
-      } else {
-        const designDoc = vscode.workspace.textDocuments.find(
-          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName),
-        )
-        if (designDoc) currentFilePath = designDoc.uri.fsPath
-      }
-    }
-    return getFileContent(context, currentFilePath)
+    // 直接使用闭包中的 filePath，不再依赖全局状态
+    return getFileContent(context, filePath)
   })
 
   // 保存低码项目
@@ -160,13 +141,10 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 保存项目：有 currentFilePath 则直接保存，否则弹窗选择路径和文件名（另存为）
   messageApiInstance.registerHandler('saveProject', async (data) => {
-    const {
-      getInstance: getWebviewManager,
-    } = require('./manager/webviewManager')
     const webviewManager = getWebviewManager()
     const saveContent = data?.saveContent != null ? data.saveContent : data
-    let currentFilePath =
-      data?.currentFilePath ?? webviewManager.getCurrentFilePath()
+    // 优先使用前端传入的路径，否则使用闭包中的 filePath（不再依赖全局状态）
+    let currentFilePath = data?.currentFilePath ?? filePath
     const silent = data?.silent === true
     const res = await saveProject(context, saveContent, currentFilePath, silent)
     // 新建文件另存为成功后：更新当前文件路径、面板标题，并加入最近打开列表
@@ -180,7 +158,9 @@ function registerHandlers(messageApiInstance, context, filePath) {
       if (messageApiInstance.panel) {
         messageApiInstance.panel.title = path.basename(res.path)
       }
+      currentFilePath = res.path // 更新为实际保存的路径
     }
+    // 注意：不再触发 workbench.action.files.save，因为它会保存所有脏文件导致死循环
     return res
   })
 
@@ -193,39 +173,24 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 根据当前设计文件得到导出默认值：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
   messageApiInstance.registerHandler('getCurrentExportDefaults', () => {
-    const {
-      getInstance: getWebviewManager,
-    } = require('./manager/webviewManager')
-    const webviewManager = getWebviewManager()
-    let currentFilePath = webviewManager.getCurrentFilePath()
-    if (!currentFilePath) {
-      const activeDoc = vscode.window.activeTextEditor?.document
-      if (activeDoc && isMybricksFile(activeDoc.fileName)) {
-        currentFilePath = activeDoc.uri.fsPath
-      } else {
-        const designDoc = vscode.workspace.textDocuments.find(
-          (d) => d.uri.scheme === 'file' && isMybricksFile(d.fileName),
-        )
-        if (designDoc) currentFilePath = designDoc.uri.fsPath
-      }
-    }
     const root = getWorkspaceRoot()
-    if (!currentFilePath) {
+    // 直接使用闭包中的 filePath，不再依赖全局状态
+    if (!filePath) {
       console.log('[导出] getCurrentExportDefaults: 无当前设计文件，返回默认', {
         projectName: 'my_project',
         exportDir: '.',
       })
       return { projectName: 'my_project', exportDir: '.' }
     }
-    const dir = path.dirname(currentFilePath)
+    const dir = path.dirname(filePath)
     let exportDir = path.relative(root, dir)
     if (!exportDir || exportDir.startsWith('..')) exportDir = '.'
     const projectName =
-      path.basename(currentFilePath, path.extname(currentFilePath)) ||
+      path.basename(filePath, path.extname(filePath)) ||
       'my_project'
     const res = { projectName, exportDir }
     console.log('[导出] getCurrentExportDefaults', {
-      currentFilePath,
+      filePath,
       root,
       res,
     })

@@ -206,7 +206,8 @@ class MyBricksEditorProvider {
     const messageApiInstance = webviewManager.getMessageAPIByFilePath(filePath)
     if (messageApiInstance) {
       try {
-        messageApiInstance.notifyWebview('triggerSave', {})
+        // 携带 filePath，让前端知道要保存哪个文件
+        messageApiInstance.notifyWebview('triggerSave', { filePath })
       } catch (e) {
         // 面板可能已销毁，忽略错误
       }
