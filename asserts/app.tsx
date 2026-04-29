@@ -369,14 +369,11 @@ export default function App() {
         }
         // pluginAIUrl = 'http://127.0.0.1:5500/packages/plugin/dist/index.umd.js'
 
-        const scripts: Promise<void>[] = [loadScript(designerUrl)]
-        if (pluginAIUrl) {
-          scripts.push(loadScript(pluginAIUrl))
-        } else {
-          console.warn(
-            '[manifest] pluginAI.url 和 version 均为空，跳过 plugin-ai 加载',
-          )
+        if (!pluginAIUrl) {
+          throw new Error('[manifest] pluginAI.url 和 version 均为空，AI 插件无法加载')
         }
+
+        const scripts: Promise<void>[] = [loadScript(designerUrl), loadScript(pluginAIUrl)]
 
         // 加载 codingConfig 中的三方库 UMD 文件（JS），需在加载设计器配置前完成
         const libs = codingConfig?.availableLibraries ?? []
@@ -398,6 +395,7 @@ export default function App() {
         return Promise.all(scripts)
       })
       .then(async () => {
+        // 校验设计器加载成功
         const designer = (window as any).mybricks?.SPADesigner
         if (!designer) {
           throw new Error(
@@ -405,8 +403,16 @@ export default function App() {
           )
         }
 
+        // 校验 AI 插件加载成功
+        const PluginAI = (window as any).MyBricksPluginAI
+        if (!PluginAI) {
+          throw new Error(
+            '[manifest] 加载后 window.MyBricksPluginAI 不存在',
+          )
+        }
+
         // 检测 Infra 服务是否可用，决定 AI 请求渠道
-        const { checkInfraAvailable } = (window as any).MyBricksPluginAI || {}
+        const { checkInfraAvailable } = PluginAI
         let infraOk = false
         if (typeof checkInfraAvailable === 'function') {
           infraOk = await checkInfraAvailable().catch(() => false)
