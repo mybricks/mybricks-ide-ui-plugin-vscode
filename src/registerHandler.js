@@ -100,6 +100,43 @@ function registerHandlers(messageApiInstance, context, filePath) {
     saveFileContent(context, data)
   })
 
+  // VSCode 原生通知（前端通过 call('showNotification', { type, message }) 触发）
+  // type: 'info' | 'warning' | 'error'
+  // revealPath: 可选，通知中附带「在文件系统中打开」按钮，点击后 reveal 该路径
+  messageApiInstance.registerHandler('showNotification', async (data) => {
+    const type = data?.type || 'info'
+    const msg = data?.message || ''
+    const revealPath = data?.revealPath || ''
+    if (!msg) return
+    const showFn =
+      type === 'error' ? vscode.window.showErrorMessage
+      : type === 'warning' ? vscode.window.showWarningMessage
+      : vscode.window.showInformationMessage
+    if (revealPath) {
+      const action = await showFn(msg, '在文件系统中打开')
+      if (action === '在文件系统中打开') {
+        vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(revealPath))
+      }
+    } else {
+      showFn(msg)
+    }
+    return { success: true }
+  })
+
+  // 将 projectName + exportDir 安全地拼接为 basePath（相对工作区根）并返回绝对路径
+  // 前端传入这两个值，后端用 path.join 处理跨平台路径，避免前端字符串拼接不安全
+  messageApiInstance.registerHandler('resolveExportPath', (data) => {
+    const projectName = (data?.projectName || 'mybricks-app').trim()
+    const exportDir = data?.exportDir || '.'
+    const root = getWorkspaceRoot()
+    const basePath = exportDir === '.' ? projectName : path.join(exportDir, projectName)
+    const fullPath = path.resolve(root, basePath)
+    if (!fullPath.startsWith(root)) {
+      return { error: '导出路径超出工作区范围' }
+    }
+    return { basePath, fullPath }
+  })
+
   // 未命名文件有编辑时通知用户保存（右下角 VSCode 原生提醒）
   // 防重：60s 内只弹一次
   let _unnamedDirtyNotifiedAt = 0

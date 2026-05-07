@@ -135,7 +135,8 @@ export function exportCodeToVSCode(
 
   return resolveDir
     .then((dirPath: string) => {
-      const basePath = dirPath.replace(/\\/g, '/').replace(/\/+$/, '') + '/' + folderName
+      const dir = dirPath.replace(/\\/g, '/').replace(/\/+$/, '')
+      const basePath = folderName ? `${dir}/${folderName}` : dir
       const tree = fileItemsToTree(files)
       return webViewMessageApi
         .call('writeWorkspaceFiles', {
