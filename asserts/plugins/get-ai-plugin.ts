@@ -1,3 +1,8 @@
+import componentRuntime from "./componentRuntime";
+import promptSections from "./prompt";
+import { createOperateApiTool } from "./tools/operate-api";
+import skills from "./skills";
+
 export type OnDownloadParams = {
   name: string
   content: string
@@ -64,25 +69,10 @@ export default async ({ key, useInfra = true, onDownload, codingConfig }: GetAiP
     }
   } : {}
 
+  const operateApiTool = createOperateApiTool(key);
+
   return AIPlugin({
     key,
-    createTemplates: {
-      page: ({ title }) => {
-        return {
-          type: "normal",
-          title: "页面",
-          inputs: [
-            {
-              id: "open",
-              title: "打开",
-              schema: {
-                type: "any",
-              },
-            },
-          ],
-        }
-      }
-    },
     onUpload: infraUpload
       ? async (params: any) => {
           const settings = await getAISetting()
@@ -101,7 +91,11 @@ export default async ({ key, useInfra = true, onDownload, codingConfig }: GetAiP
     // channel === 'custom'会执行这里
     ...customPrams,
     onDownload,
-    codingMode: true,
     codingConfig,
+    tools: [operateApiTool],
+    skills,
+    // ------ taro ------
+    componentRuntime,
+    promptSections,
   })
 }

@@ -2,12 +2,29 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const DEFINE_CONFIG = {
+  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  'DEPRECATED_ADAPTER_COMPONENT': JSON.stringify(false),
+  'process.env.TARO_VERSION': JSON.stringify('4.1.11'),
+  'process.env.TARO_ENV': JSON.stringify('h5'),
+  'process.env.FRAMEWORK': JSON.stringify('react'),
+  'process.env.TARO_PLATFORM': JSON.stringify('web'),
+  'process.env.SUPPORT_TARO_POLYFILL': JSON.stringify('disabled'),
+  'process.env.SUPPORT_DINGTALK_NAVIGATE': JSON.stringify('disabled'),
+}
+
 export default defineConfig({
   plugins: [
     react({
       jsxRuntime: 'classic', // 使用经典的 React.createElement
     })
   ],
+
+  optimizeDeps: {
+    esbuildOptions: {
+      define: DEFINE_CONFIG,
+    },
+  },
   
   esbuild: {
     jsx: 'transform',
@@ -69,13 +86,20 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'asserts'),
       '@mybricks/plugin-ai': path.resolve(__dirname, '../plugin-ai/dist/index.js'),
+      
+      // -- taro polyfill --
+      '@tarojs/taro$': path.resolve(__dirname, './polyfill/taro/h5.ts'),
+      '@tarojs/plugin-framework-react': '@mybricks/tarojs-plugin-framework-react',
+      '@tarojs/router': '@mybricks/tarojs-router',
+      '@tarojs/runtime': '@mybricks/tarojs-runtime',
+      '@tarojs/taro-h5': '@mybricks/tarojs-taro-h5',
+      '@tarojs/components$': '@mybricks/tarojs-components/lib/react',
+      '@tarojs/components': '@mybricks/tarojs-components',
     },
     // 优先 .ts/.tsx，使 code-next 内部相对引用也走 TS 源码
     extensions: ['.ts', '.tsx', '.mjs', '.js', '.mts', '.cjs', '.jsx', '.json'],
   },
   
   // 定义全局变量
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-  },
+  define: DEFINE_CONFIG,
 })
