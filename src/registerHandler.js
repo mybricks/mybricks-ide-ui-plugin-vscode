@@ -15,11 +15,17 @@ const { stopProxyServer, startProxyServer, getPort } = require('./proxy-server')
 const {
   readWorkspaceFile,
   writeWorkspaceFile,
+  writeFileInRoot,
+  deleteWorkspaceFiles,
+  deleteFilesInRoot,
   writeWorkspaceFilesFromResults,
   getWorkspaceRoot,
+  isPathInsideRoot,
+  readFilesFromRoot,
 } = require('../utils/workspaceFiles')
 const { wrapResultsAsProject } = require('../utils/projectModeOutput')
 const { STATE_KEYS } = require('../utils/constants')
+const { runCommandInRoot, runWorkspaceCommand } = require('../utils/workspaceCommand')
 const { getInstance: getWebviewManager } = require('./manager/webviewManager')
 
 /**
@@ -304,6 +310,32 @@ function registerHandlers(messageApiInstance, context, filePath) {
     return {}
   })
 
+  // 选择附加项目目录（允许工作区外路径，由用户显式选择授权）
+  messageApiInstance.registerHandler('selectIdeProjectDir', async () => {
+    const root = getWorkspaceRoot()
+    const uri = await vscode.window.showOpenDialog({
+      canSelectFolders: true,
+      canSelectFiles: false,
+      canSelectMany: false,
+      defaultUri: vscode.Uri.file(root),
+      title: '选择项目目录',
+    })
+    if (!uri || !uri[0]) return {}
+    const selected = uri[0].fsPath
+    return {
+      path: selected,
+      name: path.basename(selected),
+    }
+  })
+
+  messageApiInstance.registerHandler('getIdeWorkspaceRoot', () => {
+    const root = getWorkspaceRoot()
+    return {
+      path: root,
+      name: path.basename(root),
+    }
+  })
+
   // 将导出相对路径解析为工作区内的完整路径（供前端展示）
   messageApiInstance.registerHandler('getExportFullPath', (data) => {
     const basePath =
@@ -384,6 +416,137 @@ function registerHandlers(messageApiInstance, context, filePath) {
     }
   })
 
+  // 获取工作区文件列表（用于 AI additionalDirectory / 已打开工作区目录）
+  // 递归读取工作区根目录下所有文件，过滤规则：
+  //   1. 跳过常见构建/依赖目录（node_modules、.git、dist 等）
+  //   2. 跳过 .ui / .mybricks 设计文件
+  //   3. 遵循工作区根的 .gitignore / .ignore 规则
+  //   4. 默认隐藏 . 开头的文件/目录
+  messageApiInstance.registerHandler('getWorkspaceFiles', async () => {
+    const root = getWorkspaceRoot()
+    if (!root || !fs.existsSync(root)) return { files: [] }
+
+    // 常见需要跳过的目录名
+    const SKIP_DIRS = new Set([
+      'node_modules', '.git', 'dist', 'build', 'out', 'output', '.next',
+      '.nuxt', '.cache', '.turbo', '.parcel-cache', 'coverage', '.nyc_output',
+      '.svelte-kit', '__pycache__', '.pytest_cache', '.venv', 'venv',
+      '.idea', '.vscode', '.DS_Store',
+    ])
+    // 跳过的文件扩展名
+    const SKIP_EXTS = new Set(['.ui', '.mybricks'])
+    // 文件大小上限（1MB），避免把大文件也读入内存
+    const MAX_FILE_SIZE = 1 * 1024 * 1024
+
+    /**
+     * 解析 .gitignore / .ignore 文件，返回模式列表（仅支持基础 glob 前缀匹配）
+     * @param {string} filePath
+     * @returns {string[]}
+     */
+    function readIgnorePatterns(filePath) {
+      if (!fs.existsSync(filePath)) return []
+      try {
+        return fs.readFileSync(filePath, 'utf-8')
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => l && !l.startsWith('#'))
+      } catch {
+        return []
+      }
+    }
+
+    /**
+     * 简易 gitignore 匹配：判断相对路径是否被 pattern 覆盖
+     * 支持：精确名称、前缀目录匹配、trailing-slash（目录）、简单 * 通配
+     * @param {string} relPath - 相对工作区根的路径（使用 /  分隔符）
+     * @param {string} pattern
+     * @returns {boolean}
+     */
+    function matchesPattern(relPath, pattern) {
+      // 去掉尾部 /（目录标记）
+      const p = pattern.replace(/\/$/, '')
+      if (!p) return false
+      // 精确匹配或前缀目录匹配
+      if (relPath === p || relPath.startsWith(p + '/')) return true
+      // 简单通配符：仅含 * 的模式（如 *.log）
+      if (p.includes('*')) {
+        const escaped = p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+        try {
+          const re = new RegExp(`^${escaped}$`)
+          // 匹配末尾文件名
+          const basename = relPath.split('/').pop() || ''
+          if (re.test(basename)) return true
+          if (re.test(relPath)) return true
+        } catch {
+          // ignore regex error
+        }
+      }
+      return false
+    }
+
+    const ignorePatterns = [
+      ...readIgnorePatterns(path.join(root, '.gitignore')),
+      ...readIgnorePatterns(path.join(root, '.ignore')),
+    ]
+
+    /**
+     * 判断相对路径是否应被忽略
+     * @param {string} relPath - 相对工作区根，使用 / 分隔符
+     * @returns {boolean}
+     */
+    function shouldIgnore(relPath) {
+      if (!relPath) return false
+      for (const pattern of ignorePatterns) {
+        if (matchesPattern(relPath, pattern)) return true
+      }
+      return false
+    }
+
+    const results = []
+
+    function walk(dir, relBase) {
+      let entries
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+      for (const entry of entries) {
+        const relPath = relBase ? relBase + '/' + entry.name : entry.name
+        if (entry.name.startsWith('.')) continue
+        if (shouldIgnore(relPath)) continue
+
+        if (entry.isDirectory()) {
+          if (SKIP_DIRS.has(entry.name)) continue
+          walk(path.join(dir, entry.name), relPath)
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase()
+          if (SKIP_EXTS.has(ext)) continue
+          const fullPath = path.join(dir, entry.name)
+          try {
+            const stat = fs.statSync(fullPath)
+            if (stat.size > MAX_FILE_SIZE) continue
+            const content = fs.readFileSync(fullPath, 'utf-8')
+            results.push({ path: 'workspace/' + relPath, content })
+          } catch {
+            // 跳过无法读取的文件（如二进制文件）
+          }
+        }
+      }
+    }
+
+    walk(root, '')
+    return { files: results }
+  })
+
+  // 读取用户显式添加的附加项目文件，路径边界限制在 root 内
+  messageApiInstance.registerHandler('getIdeProjectFiles', async (data) => {
+    const root = data?.root != null ? path.resolve(String(data.root)) : ''
+    const virtualRoot = data?.virtualRoot != null ? String(data.virtualRoot) : ''
+    if (!root || !fs.existsSync(root)) return { files: [] }
+    return readFilesFromRoot(root, virtualRoot)
+  })
+
   // 获取当前聚焦的元素信息
   messageApiInstance.registerHandler('getFocusElementInfo', async () => {
     // 调用前端 window.__mybricksAIService.focus 获取当前聚焦的元素信息
@@ -404,6 +567,55 @@ function registerHandlers(messageApiInstance, context, filePath) {
     const content = (data && data.content) != null ? String(data.content) : ''
     if (!relativePath) return { error: '缺少 path 参数' }
     return writeWorkspaceFile(relativePath, content)
+  })
+
+  // 写入附加项目文件（相对附加项目根目录）
+  messageApiInstance.registerHandler('writeIdeProjectFile', async (data) => {
+    const root = data?.root != null ? path.resolve(String(data.root)) : ''
+    const relativePath = data?.path != null ? String(data.path) : ''
+    const content = data?.content != null ? String(data.content) : ''
+    if (!root || !fs.existsSync(root)) return { error: '项目根目录不存在' }
+    if (!relativePath) return { error: '缺少 path 参数' }
+    return writeFileInRoot(root, relativePath, content)
+  })
+
+  // 删除工作区文件/目录（相对工作区根的路径列表）
+  messageApiInstance.registerHandler('deleteWorkspaceFiles', async (data) => {
+    const paths = data && Array.isArray(data.paths) ? data.paths.map(String) : []
+    if (!paths.length) return { error: '缺少 paths 参数（需为数组）' }
+    return deleteWorkspaceFiles(paths)
+  })
+
+  // 删除附加项目文件/目录（相对附加项目根目录）
+  messageApiInstance.registerHandler('deleteIdeProjectFiles', async (data) => {
+    const root = data?.root != null ? path.resolve(String(data.root)) : ''
+    const paths = data && Array.isArray(data.paths) ? data.paths.map(String) : []
+    if (!root || !fs.existsSync(root)) return { error: '项目根目录不存在' }
+    if (!paths.length) return { error: '缺少 paths 参数（需为数组）' }
+    return deleteFilesInRoot(root, paths)
+  })
+
+  // 在工作区根目录执行有限白名单命令（npm/yarn/pnpm/bun/nest），支持 workdir 切换子目录
+  messageApiInstance.registerHandler('runWorkspaceCommand', async (data) => {
+    const command = (data && data.command) != null ? String(data.command) : ''
+    const timeoutMs = data && data.timeoutMs
+    const workdir = (data && data.workdir) != null ? String(data.workdir) : undefined
+    if (!command.trim()) return { error: '缺少 command 参数' }
+    return runWorkspaceCommand(command, timeoutMs, workdir)
+  })
+
+  // 在用户显式添加的附加项目中执行有限白名单命令
+  messageApiInstance.registerHandler('runIdeProjectCommand', async (data) => {
+    const root = data?.root != null ? path.resolve(String(data.root)) : ''
+    const command = data?.command != null ? String(data.command) : ''
+    const timeoutMs = data && data.timeoutMs
+    const workdir = data?.workdir != null ? String(data.workdir) : undefined
+    if (!root || !fs.existsSync(root)) return { error: '项目根目录不存在' }
+    if (!isPathInsideRoot(root, path.resolve(root, workdir || '.'))) {
+      return { error: 'workdir 超出项目范围' }
+    }
+    if (!command.trim()) return { error: '缺少 command 参数' }
+    return runCommandInRoot(root, command, timeoutMs, workdir)
   })
 
   // 根据出码 results 结构在工作区生成多文件/目录；支持 projectMode 产出 HTML + Vite 项目（样式由出码侧处理）

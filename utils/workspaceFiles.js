@@ -16,6 +16,15 @@ function getWorkspaceRoot() {
   return process.cwd() || path.join(os.homedir(), 'MyBricks')
 }
 
+function isPathInsideRoot(root, fullPath) {
+  const relative = path.relative(root, fullPath)
+  return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+function normalizeRelativePath(relativePath) {
+  return String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '') || '.'
+}
+
 /**
  * 读取工作区内的文件
  * @param {string} relativePath - 相对于工作区根目录的路径
@@ -24,7 +33,7 @@ function getWorkspaceRoot() {
 function readWorkspaceFile(relativePath) {
   const root = getWorkspaceRoot()
   const fullPath = path.resolve(root, relativePath)
-  if (!fullPath.startsWith(root)) {
+  if (!isPathInsideRoot(root, fullPath)) {
     return { error: '路径不能超出工作区范围' }
   }
 
@@ -51,7 +60,7 @@ function readWorkspaceFile(relativePath) {
 function writeWorkspaceFile(relativePath, content) {
   const root = getWorkspaceRoot()
   const fullPath = path.resolve(root, relativePath)
-  if (!fullPath.startsWith(root)) {
+  if (!isPathInsideRoot(root, fullPath)) {
     return { error: '路径不能超出工作区范围' }
   }
   if (path.relative(root, fullPath).split(path.sep).some((seg) => PROTECTED_DIRS.includes(seg))) {
@@ -75,6 +84,42 @@ function writeWorkspaceFile(relativePath, content) {
 }
 
 /**
+ * 删除工作区内的文件或目录
+ * @param {string[]} relativePaths - 相对于工作区根目录的路径列表
+ * @returns {{ ok: true, deleted: string[] } | { error: string, deleted?: string[] }}
+ */
+function deleteWorkspaceFiles(relativePaths) {
+  const root = getWorkspaceRoot()
+  const deleted = []
+
+  if (!Array.isArray(relativePaths)) {
+    return { error: 'paths 参数需为数组' }
+  }
+
+  for (const relativePath of relativePaths) {
+    const fullPath = path.resolve(root, relativePath)
+    if (!isPathInsideRoot(root, fullPath)) {
+      return { error: '路径不能超出工作区范围', deleted }
+    }
+    if (path.relative(root, fullPath).split(path.sep).some((seg) => PROTECTED_DIRS.includes(seg))) {
+      return { error: '不允许删除 node_modules、.git 等受保护目录', deleted }
+    }
+  }
+
+  try {
+    for (const relativePath of relativePaths) {
+      const fullPath = path.resolve(root, relativePath)
+      if (!fs.existsSync(fullPath)) continue
+      fs.rmSync(fullPath, { recursive: true, force: true })
+      deleted.push(path.relative(root, fullPath))
+    }
+    return { ok: true, deleted }
+  } catch (err) {
+    return { error: err.message || String(err), deleted }
+  }
+}
+
+/**
  * 出码 results 结构：数组项为 { name, type: 'file'|'folder', content?, children? }
  * 递归创建目录和文件
  * @param {string} basePath - 基础路径（相对工作区根），如 '' 或 'src'
@@ -84,7 +129,7 @@ function writeWorkspaceFile(relativePath, content) {
 function writeWorkspaceFilesFromResults(basePath, results) {
   const root = getWorkspaceRoot()
   const baseFull = basePath ? path.resolve(root, basePath) : root
-  if (!baseFull.startsWith(root)) {
+  if (!isPathInsideRoot(root, baseFull)) {
     return { error: '基础路径不能超出工作区范围' }
   }
 
@@ -149,10 +194,128 @@ function writeWorkspaceFilesFromResults(basePath, results) {
   }
 }
 
+function readFilesFromRoot(root, virtualRoot = '') {
+  if (!root || !fs.existsSync(root)) return { files: [] }
+
+  const normalizedRoot = path.resolve(root)
+  const prefix = virtualRoot ? String(virtualRoot).replace(/\/?$/, '/') : ''
+  const skipDirs = new Set([
+    'node_modules', '.git', 'dist', 'build', 'out', 'output', '.next',
+    '.nuxt', '.cache', '.turbo', '.parcel-cache', 'coverage', '.nyc_output',
+    '.svelte-kit', '__pycache__', '.pytest_cache', '.venv', 'venv',
+    '.idea', '.vscode', '.DS_Store',
+  ])
+  const skipExts = new Set(['.ui', '.mybricks'])
+  const maxFileSize = 1 * 1024 * 1024
+  const results = []
+
+  function walk(dir, relBase) {
+    let entries
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      const relPath = relBase ? relBase + '/' + entry.name : entry.name
+      if (entry.name.startsWith('.')) continue
+
+      if (entry.isDirectory()) {
+        if (skipDirs.has(entry.name)) continue
+        walk(path.join(dir, entry.name), relPath)
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase()
+        if (skipExts.has(ext)) continue
+        const fullPath = path.join(dir, entry.name)
+        if (!isPathInsideRoot(normalizedRoot, fullPath)) continue
+        try {
+          const stat = fs.statSync(fullPath)
+          if (stat.size > maxFileSize) continue
+          const content = fs.readFileSync(fullPath, 'utf-8')
+          results.push({ path: prefix + relPath, content })
+        } catch {
+          // 跳过二进制或无法读取的文件。
+        }
+      }
+    }
+  }
+
+  walk(normalizedRoot, '')
+  return { files: results }
+}
+
+function writeFileInRoot(root, relativePath, content) {
+  const normalizedRoot = path.resolve(root)
+  const safeRelativePath = normalizeRelativePath(relativePath)
+  const fullPath = path.resolve(normalizedRoot, safeRelativePath)
+  if (!isPathInsideRoot(normalizedRoot, fullPath)) {
+    return { error: '路径不能超出项目范围' }
+  }
+  if (path.relative(normalizedRoot, fullPath).split(path.sep).some((seg) => PROTECTED_DIRS.includes(seg))) {
+    return { error: '不允许写入 node_modules、.git 等受保护目录' }
+  }
+
+  try {
+    const dir = path.dirname(fullPath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    if (fs.existsSync(fullPath)) {
+      const current = fs.readFileSync(fullPath, 'utf-8')
+      if (current === content) return { ok: true, updated: false }
+    }
+    fs.writeFileSync(fullPath, content, 'utf-8')
+    return { ok: true, updated: true }
+  } catch (err) {
+    return { error: err.message || String(err) }
+  }
+}
+
+function deleteFilesInRoot(root, relativePaths) {
+  const normalizedRoot = path.resolve(root)
+  const deleted = []
+
+  if (!Array.isArray(relativePaths)) {
+    return { error: 'paths 参数需为数组' }
+  }
+
+  for (const relativePath of relativePaths) {
+    const safeRelativePath = normalizeRelativePath(relativePath)
+    if (safeRelativePath === '.') {
+      return { error: '不允许删除项目根目录', deleted }
+    }
+    const fullPath = path.resolve(normalizedRoot, safeRelativePath)
+    if (!isPathInsideRoot(normalizedRoot, fullPath)) {
+      return { error: '路径不能超出项目范围', deleted }
+    }
+    if (path.relative(normalizedRoot, fullPath).split(path.sep).some((seg) => PROTECTED_DIRS.includes(seg))) {
+      return { error: '不允许删除 node_modules、.git 等受保护目录', deleted }
+    }
+  }
+
+  try {
+    for (const relativePath of relativePaths) {
+      const fullPath = path.resolve(normalizedRoot, normalizeRelativePath(relativePath))
+      if (!fs.existsSync(fullPath)) continue
+      fs.rmSync(fullPath, { recursive: true, force: true })
+      deleted.push(path.relative(normalizedRoot, fullPath))
+    }
+    return { ok: true, deleted }
+  } catch (err) {
+    return { error: err.message || String(err), deleted }
+  }
+}
+
 module.exports = {
   PROTECTED_DIRS,
   getWorkspaceRoot,
+  isPathInsideRoot,
+  readFilesFromRoot,
   readWorkspaceFile,
   writeWorkspaceFile,
+  writeFileInRoot,
+  deleteWorkspaceFiles,
+  deleteFilesInRoot,
   writeWorkspaceFilesFromResults,
 }

@@ -10,6 +10,7 @@ import FilePath from './components/file-path'
 import { loadManifest } from './manifestLoader'
 
 import getAiPlugin from './plugins/get-ai-plugin'
+import { createIdeWorkspaceConfigPlugin } from './plugins/ide-workspace'
 
 type CodingConfigData = {
   themes?: Array<{ id: string; name: string; vars: Array<{ propertyName: string; value: string; title: string; type: string }> }>
@@ -43,6 +44,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
           vsCodeMessage.call('downloadFile', { name: params.name, content: params.content }),
         codingConfig: codingConfig ?? undefined,
       }),
+      createIdeWorkspaceConfigPlugin(),
       //servicePlugin(), // HTTP 接口连接器
     ],
 
@@ -60,6 +62,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
           console.warn('[comLibLoader] manifest.aiComLib.url 为空，跳过组件库加载')
           return []
         }
+        // return ['http://localhost:20000/comlib.js']
         return [aiComLibUrl]
       }).catch((err) => {
         console.error('[comLibLoader] 获取 manifest 失败:', err)
