@@ -44,10 +44,16 @@ function fileItemsToTree(
       const isLast = j === parts.length - 1
       const part = parts[j]
       if (isLast) {
+        const suffix = file.fileName.split('.').pop();
+        let content = file.content != null ? String(file.content) : '';
+        if (suffix === 'less') {
+          // 去除 :frame { ... } 块
+          content = content.replace(/:frame\s*\{[^}]*\}/g, '').trim();
+        }
         current.children.push({
           name: part,
           type: 'file',
-          content: file.content != null ? String(file.content) : '',
+          content,
         })
       } else {
         let folder = current.children.find(
