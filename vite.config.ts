@@ -83,19 +83,17 @@ export default defineConfig({
   
   // 解析配置
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'asserts'),
-      '@mybricks/plugin-ai': path.resolve(__dirname, '../plugin-ai/dist/index.js'),
-      
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, 'asserts') },
       // -- taro polyfill --
-      '@tarojs/taro$': path.resolve(__dirname, './polyfill/taro/h5.ts'),
-      '@tarojs/plugin-framework-react': '@mybricks/tarojs-plugin-framework-react',
-      '@tarojs/router': '@mybricks/tarojs-router',
-      '@tarojs/runtime': '@mybricks/tarojs-runtime',
-      '@tarojs/taro-h5': '@mybricks/tarojs-taro-h5',
-      '@tarojs/components$': '@mybricks/tarojs-components/lib/react',
-      '@tarojs/components': '@mybricks/tarojs-components',
-    },
+      { find: /^@tarojs\/taro$/, replacement: path.resolve(__dirname, './polyfill/taro/h5.ts') },
+      { find: '@tarojs/plugin-framework-react', replacement: '@mybricks/tarojs-plugin-framework-react' },
+      { find: '@tarojs/router', replacement: '@mybricks/tarojs-router' },
+      { find: '@tarojs/runtime', replacement: '@mybricks/tarojs-runtime' },
+      { find: '@tarojs/taro-h5', replacement: '@mybricks/tarojs-taro-h5' },
+      { find: /^@tarojs\/components$/, replacement: '@mybricks/tarojs-components/lib/react' },
+      { find: '@tarojs/components', replacement: '@mybricks/tarojs-components' },
+    ],
     // 优先 .ts/.tsx，使 code-next 内部相对引用也走 TS 源码
     extensions: ['.ts', '.tsx', '.mjs', '.js', '.mts', '.cjs', '.jsx', '.json'],
   },
