@@ -461,7 +461,7 @@ export default async ({ key, useInfra = true, onDownload, codingConfig }: GetAiP
     onDownload,
     codingMode: true,
     codingConfig,
-    plugins,
+    // plugins,
     // ...commonCodePreset
   })
 }

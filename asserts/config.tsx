@@ -44,7 +44,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
           vsCodeMessage.call('downloadFile', { name: params.name, content: params.content }),
         codingConfig: codingConfig ?? undefined,
       }),
-      createIdeWorkspaceConfigPlugin(),
+      // createIdeWorkspaceConfigPlugin(),
       //servicePlugin(), // HTTP 接口连接器
     ],
 
