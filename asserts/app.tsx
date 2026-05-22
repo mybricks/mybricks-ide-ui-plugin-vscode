@@ -162,6 +162,22 @@ async function fetchCodingConfig(): Promise<CodingConfigData | null> {
   throw new Error('[codingConfig] CDN 地址尚未配置，跳过三方库加载')
 }
 
+function checkCustomHasAIToken(providers: any[]) {
+  if (!providers?.length) return false
+  return providers.some((p) => {
+    const flag = Object.keys(p).every((k) => {
+      const v = p[k]
+      if (k === 'models') {
+        return Array.isArray(v) && v.some((m) => typeof m.id === 'string' && m.id.trim() !== '')
+      } else if (typeof v === 'string') {
+        return v.trim() !== ''
+      }
+      return false
+    })
+    return flag
+  })
+}
+
 /**
  * 主应用组件
  */
@@ -247,7 +263,7 @@ export default function App() {
         setHasAIToken(typeof s?.mybricksAiToken === 'string' && s.mybricksAiToken.trim() !== '')
       } else {
         // custom
-        setHasAIToken(typeof s?.customApiKey === 'string' && s.customApiKey.trim() !== '')
+        setHasAIToken(checkCustomHasAIToken(s?.providers))
       }
     },
     [infraAvailable],
@@ -448,8 +464,7 @@ export default function App() {
           )
         } else {
           setHasAIToken(
-            typeof savedSettings?.customApiKey === 'string' &&
-              savedSettings.customApiKey.trim() !== '',
+            checkCustomHasAIToken(savedSettings?.providers),
           )
         }
 
