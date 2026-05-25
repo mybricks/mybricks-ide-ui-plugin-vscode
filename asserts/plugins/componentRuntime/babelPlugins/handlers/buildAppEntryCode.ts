@@ -63,10 +63,10 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
           }, {}),`
         }, "")}
       ]
-      Object.assign(ReactDOM, { findDOMNode, render, unstable_batchedUpdates })
+      const ReactDOMCompat = Object.assign({}, ReactDOM, { findDOMNode, render, unstable_batchedUpdates })
       defineCustomElementTaroPullToRefreshCore()
 
-      var inst = createReactApp(App, React, ReactDOM, config)
+      var inst = createReactApp(App, React, ReactDOMCompat, config)
       var history = createMemoryHistory(({ initialEntries: [_debugTarget.pageIndex] }))
       ${appMountHandler}(config, history)
       createRouter(history, inst, config, React)
