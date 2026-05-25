@@ -1,0 +1,26 @@
+a {
+  text-decoration: none;
+  background-color: transparent;
+}
+
+.nut-icon {
+  display: inline-block;
+}
+
+.taro-textarea {
+  background-color: transparent;
+  resize: none;
+  height: 100%;
+}
+
+taro-textarea-core {
+  width: auto;
+}
+
+input {
+  text-align: inherit;
+}
+
+taro-button-core + taro-button-core {
+  margin-top: unset;
+}

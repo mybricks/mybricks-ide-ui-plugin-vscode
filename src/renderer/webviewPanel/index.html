@@ -47,6 +47,13 @@
 
     <!-- MyBricks API -->
     <script src="./asserts/mybricks-api.js"></script>
+
+    <!-- 公共文件路径，webview 加载时会替换成vscode的文件路径 -->
+    <script>
+      window.PUBLIC_FILES = {
+        EDIT_RESET_CSS: "./out/webview/edit-reset.css"
+      }
+    </script>
   </head>
 
   <body>

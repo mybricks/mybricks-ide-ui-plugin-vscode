@@ -13,7 +13,8 @@
     "watch:extension": "tsc -watch -p ./",
     "build:webview": "vite build",
     "watch:webview": "vite build --watch",
-    "dev": "npm run watch"
+    "dev": "npm run watch",
+    "build:vsix": "npm run build:webview && vsce package --out ./unpackage"
   },
   "repository": {
     "type": "git",

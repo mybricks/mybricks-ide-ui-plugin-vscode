@@ -182,8 +182,9 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
       },
       theme: {
         css: [
-          'https://my.mybricks.world/mybricks-app-mpsite/public/brickd-mobile/0.0.53/index.css',
-          'https://my.mybricks.world/mybricks-app-mpsite/public/edit-reset.css',
+          // 'https://my.mybricks.world/mybricks-app-mpsite/public/brickd-mobile/0.0.53/index.css',
+          // 'https://my.mybricks.world/mybricks-app-mpsite/public/edit-reset.css',
+          window.PUBLIC_FILES.EDIT_RESET_CSS,
           // 从 codingConfig 注入三方库样式文件
           ...(codingConfig?.availableLibraries ?? []).flatMap((lib) =>
             (lib.urls ?? []).filter((url) => url.endsWith('.css') || url.endsWith('.less'))

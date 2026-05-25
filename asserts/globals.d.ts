@@ -106,6 +106,8 @@ declare global {
     MyBricksAPI: any
     /** code-export VS Code 适配：导出到工作区，API 与 exportToBrowser 对齐；仅扩展 Webview 内存在 */
     exportCodeToVSCode: (files: CodeExportFileItem[], options?: CodeExportToVSCodeOptions) => Promise<void>
+    /** 公共文件路径 */
+    PUBLIC_FILES: any
   }
 }
 

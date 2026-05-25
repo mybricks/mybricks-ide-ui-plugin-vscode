@@ -4,5 +4,6 @@
 *.vsix
 .DS_Store
 package-lock.json
+/unpackage
 
 .codeflicker
