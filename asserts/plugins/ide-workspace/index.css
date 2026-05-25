@@ -1,0 +1,347 @@
+.ide-folder-config-panel {
+  box-sizing: border-box;
+  width: 320px;
+  height: 100%;
+  color: var(--mybricks-text-color-main, #1f2329);
+  background: var(--mybricks-bg-color-main, #fff);
+}
+
+.ide-folder-config-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--mybricks-border-color-main, #E6E6E6);
+  color: var(--mybricks-text-color-main, #1f2329);
+}
+
+.ide-folder-config-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ide-folder-config-desc,
+.ide-folder-config-card {
+  margin-right: 10px;
+  margin-left: 10px;
+}
+
+.ide-folder-config-empty {
+}
+
+.ide-folder-config-desc {
+  margin-top: 10px;
+  margin-bottom: 12px;
+  color: var(--mybricks-text-color-main, #1f2329);
+  opacity: 0.55;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.ide-folder-config-card {
+  margin-bottom: 16px;
+}
+
+.ide-folder-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ide-folder-config-permissions {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+}
+
+.ide-folder-config-info,
+.ide-folder-config-project-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.ide-folder-config-section-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+  margin-bottom: 4px;
+  padding-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mybricks-text-color-main, #1f2329);
+}
+
+.ide-folder-config-section-title::before {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: 12px;
+  border-left: 3px solid var(--mybricks-color-primary, #fa6400);
+  content: "";
+}
+
+.ide-folder-config-project-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mybricks-text-color-main, #1f2329);
+  min-width: 0;
+}
+
+.ide-folder-config-path,
+.ide-folder-config-empty {
+  color: var(--mybricks-text-color-main, #1f2329);
+  opacity: 0.55;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.ide-folder-config-project-path {
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.ide-folder-config-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  color: var(--mybricks-text-color-main, #1f2329);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.ide-folder-config-checkbox-box {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--mybricks-bg-color-main, #fff);
+  border: 1px solid var(--mybricks-border-color-main, #E6E6E6);
+  border-radius: 3px;
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ide-folder-config-checkbox-mark {
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 4px;
+  height: 8px;
+  border-right: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  opacity: 0;
+  transform: rotate(45deg);
+  transition: opacity 0.15s ease;
+}
+
+.ide-folder-config-checkbox:hover {
+  opacity: 1;
+}
+
+.ide-folder-config-checkbox-disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.ide-folder-config-checkbox-disabled:hover {
+  opacity: 0.5;
+}
+
+.ide-folder-config-checkbox-on {
+  color: var(--mybricks-text-color-main, #1f2329);
+  opacity: 0.85;
+}
+
+.ide-folder-config-checkbox-on .ide-folder-config-checkbox-box {
+  background: var(--mybricks-color-primary, #fa6400);
+  border-color: var(--mybricks-color-primary, #fa6400);
+}
+
+.ide-folder-config-checkbox-on .ide-folder-config-checkbox-mark {
+  opacity: 1;
+}
+
+.ide-folder-config-checkbox-label {
+  white-space: nowrap;
+}
+
+.ide-folder-config-input,
+.ide-folder-config-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  color: var(--mybricks-text-color-main, #1f2329);
+  background: var(--mybricks-bg-color-main, #fff);
+  border: 1px solid var(--mybricks-border-color-main, #E6E6E6);
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ide-folder-config-input {
+  height: 28px;
+  margin-top: 10px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.ide-folder-config-textarea {
+  min-height: 58px;
+  padding: 7px 8px;
+  resize: vertical;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.ide-folder-config-input:focus,
+.ide-folder-config-textarea:focus {
+  border-color: var(--mybricks-color-primary, #fa6400);
+  box-shadow: 0 0 0 2px rgba(250, 100, 0, 0.12);
+}
+
+.ide-folder-config-input::placeholder,
+.ide-folder-config-textarea::placeholder {
+  color: var(--mybricks-text-color-main, #1f2329);
+  opacity: 0.35;
+}
+
+.ide-folder-config-textarea-workspace {
+  min-height: 74px;
+  margin-top: 8px;
+}
+
+.ide-folder-config-warning {
+  margin-top: 6px;
+  color: #faad14;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.ide-folder-config-section-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ide-folder-config-add {
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  height: 26px;
+  line-height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--mybricks-border-color-main, #E6E6E6);
+  background: var(--mybricks-bg-color-hover, #F5F5F5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--mybricks-text-color-main, #1f2329);
+  padding: 0;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+
+.ide-folder-config-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.ide-folder-config-aware-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ide-folder-config-summary-title {
+  font-size: 11px;
+  color: var(--mybricks-text-color-main, #1f2329);
+  opacity: 0.55;
+  margin-bottom: 4px;
+  line-height: 17px;
+}
+
+.ide-folder-config-summary {
+  margin: 0 10px 16px;
+}
+
+.ide-folder-config-aware-item {
+  font-size: 11px;
+  color: var(--mybricks-text-color-main, #1f2329);
+  opacity: 0.55;
+  font-family: monospace;
+  line-height: 17px;
+}
+
+.ide-folder-config-projects {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ide-folder-config-project {
+  padding-top: 12px;
+  border-top: 1px solid var(--mybricks-border-color-main, #E6E6E6);
+}
+
+.ide-folder-config-project-main {
+  min-width: 0;
+}
+
+.ide-folder-config-project-editor {
+  margin-top: 10px;
+}
+
+.ide-folder-config-project-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ide-folder-config-project-fields .ide-folder-config-input {
+  margin-top: 0;
+}
+
+.ide-folder-config-project-warning {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.ide-folder-config-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: var(--mybricks-text-color-main, #1f2329);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  opacity: 0.35;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.ide-folder-config-remove:hover {
+  opacity: 0.8;
+  color: #ff4d4f;
+}
