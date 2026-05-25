@@ -277,8 +277,12 @@ export default function App() {
         await vsCodeMessage?.call('setAISetting', newValue).catch(() => {})
 
         const newChannel: string = newValue?.channel ?? (infraAvailable ? 'infra' : 'mybricks')
-        if (newChannel !== prevChannel) {
-          // 渠道切换：弹出 VSCode 原生确认弹窗
+
+        // 前后设置序列化对比，任何字段有变化都触发刷新
+        const settingChanged = JSON.stringify(savedSettings) !== JSON.stringify(newValue)
+
+        if (settingChanged) {
+          // 设置有变更：弹出 VSCode 原生确认弹窗
           const result = await vsCodeMessage?.call('confirmChannelSwitch').catch(() => ({ action: 'cancel' }))
 
           if (result?.action === 'cancel') {

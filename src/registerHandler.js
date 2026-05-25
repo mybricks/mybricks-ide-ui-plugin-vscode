@@ -240,10 +240,10 @@ function registerHandlers(messageApiInstance, context, filePath) {
     return res
   })
 
-  // 切换 AI 渠道前弹出 VSCode 原生确认弹窗，返回用户的选择
+  // AI 设置变更（渠道切换或关键配置更新）前弹出 VSCode 原生确认弹窗，返回用户的选择
   messageApiInstance.registerHandler('confirmChannelSwitch', async () => {
     const choice = await vscode.window.showWarningMessage(
-      '切换 AI 渠道需要刷新设计器，当前未保存的内容将会丢失。',
+      'AI 设置已变更，需要刷新设计器后生效，当前未保存的内容将会丢失。',
       { modal: true },
       '保存并刷新'
     )
