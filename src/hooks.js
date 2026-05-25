@@ -5,7 +5,7 @@ const { stopMCPHttpServer } = require('./mcp-server')
 const { registerUriHandler } = require('./uriHandler')
 
 const PUBLISHER = 'mybricks'
-const EXTENSION_NAME = 'mybricks-webview'
+const EXTENSION_NAME = 'mybricks-taro-webview'
 
 /**
  * 从 VS Code Marketplace 查询插件的最新版本号
@@ -104,7 +104,7 @@ function onActivate(context) {
   // 注册所有订阅（命令、视图等）
   registerSubscriptions(context)
 
-  // 注册 URI Handler：浏览器可通过 vscode://mybricks.mybricks-webview/open 唤起 Cursor 并打开设计器
+  // 注册 URI Handler：浏览器可通过 vscode://mybricks.mybricks-taro-webview/open 唤起 Cursor 并打开设计器
   context.subscriptions.push(registerUriHandler(context))
 
   // MCP 服务不在此处启动，需打开设计器后通过命令「开启 MCP 服务」触发

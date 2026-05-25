@@ -43,7 +43,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
   // 读取「是否开启 MCP」配置（供前端与扩展内统一读取和监听）
   messageApiInstance.registerHandler('getMCPEnabled', () => {
     return (
-      vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
+      vscode.workspace.getConfiguration('mybricksTaro').get('mcp.enabled') === true
     )
   })
 
@@ -72,7 +72,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 读取 AI 请求凭证（Token）
   messageApiInstance.registerHandler('getAIToken', () => {
-    const token = vscode.workspace.getConfiguration('mybricks').get('ai.token')
+    const token = vscode.workspace.getConfiguration('mybricksTaro').get('ai.token')
     return typeof token === 'string' ? token : ''
   })
 
@@ -80,7 +80,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
   messageApiInstance.registerHandler('openAISettings', async () => {
     await vscode.commands.executeCommand(
       'workbench.action.openSettings',
-      'mybricks.ai.token',
+      'mybricksTaro.ai.token',
     )
   })
 
@@ -248,9 +248,9 @@ function registerHandlers(messageApiInstance, context, filePath) {
   // AI 设置（channel、token、custom 配置）存储到 globalState
   messageApiInstance.registerHandler('getAISetting', async () => {
     const existing = context.globalState.get('mybricks.aiSetting', null)
-    // 兼容旧版：首次迁移时把 VSCode settings 里的 mybricks.ai.token 写入新格式
+    // 兼容旧版：首次迁移时把 VSCode settings 里的 mybricksTaro.ai.token 写入新格式
     if (!existing?.mybricksAiToken) {
-      const oldToken = vscode.workspace.getConfiguration('mybricks').get('ai.token')
+      const oldToken = vscode.workspace.getConfiguration('mybricksTaro').get('ai.token')
       if (typeof oldToken === 'string' && oldToken.trim()) {
         const migrated = { ...(existing ?? {}), mybricksAiToken: oldToken }
         await context.globalState.update('mybricks.aiSetting', migrated)

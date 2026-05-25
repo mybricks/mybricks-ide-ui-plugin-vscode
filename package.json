@@ -1,9 +1,9 @@
 {
-  "name": "mybricks-webview",
-  "displayName": "VibeUI",
+  "name": "mybricks-taro-webview",
+  "displayName": "VibeTaroUI",
   "description": "Vibe prototype、Vibe design、Vibe Coding",
-  "icon": "images/mybricks.png",
-  "version": "0.0.41",
+  "icon": "images/icon.png",
+  "version": "0.0.42",
   "publisher": "mybricks",
   "scripts": {
     "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json",
@@ -28,14 +28,14 @@
   "activationEvents": [
     "onStartupFinished",
     "onUri",
-    "onCustomEditor:mybricks.editor"
+    "onCustomEditor:mybricks.taro.editor"
   ],
   "main": "./extension.js",
   "contributes": {
     "customEditors": [
       {
-        "viewType": "mybricks.editor",
-        "displayName": "MyBricks Editor",
+        "viewType": "mybricks.taro.editor",
+        "displayName": "VibeTaro Editor",
         "selector": [
           {
             "filenamePattern": "*.ui"
@@ -49,36 +49,36 @@
     ],
     "commands": [
       {
-        "command": "mybricks.openIDE",
+        "command": "mybricks.taro.openIDE",
         "title": "Open MyBricks IDE",
         "icon": "asserts/icon.svg"
       },
       {
-        "command": "mybricks.init",
+        "command": "mybricks.taro.init",
         "title": "初始化 MyBricks 环境"
       },
       {
-        "command": "mybricks.openFile",
+        "command": "mybricks.taro.openFile",
         "title": "用 MyBricks 打开"
       },
       {
-        "command": "mybricks.newUIFile",
+        "command": "mybricks.taro.newUIFile",
         "title": "新建 .ui 文件"
       },
       {
-        "command": "mybricks.enableMCPService",
+        "command": "mybricks.taro.enableMCPService",
         "title": "开启 MCP 服务"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "mybricks.openFile",
+          "command": "mybricks.taro.openFile",
           "when": "resourceExtname == .mybricks || resourceExtname == .ui",
           "group": "navigation"
         },
         {
-          "command": "mybricks.newUIFile",
+          "command": "mybricks.taro.newUIFile",
           "when": "explorerResourceIsFolder",
           "group": "navigation"
         }
@@ -87,17 +87,17 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "mybricks-sidebar",
-          "title": "VibeUI",
-          "icon": "asserts/sidebar_icon.png"
+          "id": "mybricks-taro-sidebar",
+          "title": "VibeTaroUI",
+          "icon": "images/icon.png"
         }
       ]
     },
     "views": {
-      "mybricks-sidebar": [
+      "mybricks-taro-sidebar": [
         {
           "type": "webview",
-          "id": "mybricks.ide",
+          "id": "mybricks.taro.ide",
           "name": "FILES"
         }
       ]
@@ -105,17 +105,17 @@
     "configuration": {
       "title": "MyBricks",
       "properties": {
-        "mybricks.mcp.enabled": {
+        "mybricksTaro.mcp.enabled": {
           "type": "boolean",
           "default": false,
           "description": "是否开启 MCP 服务"
         },
-        "mybricks.ai.token": {
+        "mybricksTaro.ai.token": {
           "type": "string",
           "default": "",
           "description": "AI 请求凭证（Token），用于设计器内 AI 能力。请在 MyBricks 平台获取 Token 后填写。"
         },
-        "mybricks.preferredFileExtension": {
+        "mybricksTaro.preferredFileExtension": {
           "type": "string",
           "default": ".ui",
           "enum": [

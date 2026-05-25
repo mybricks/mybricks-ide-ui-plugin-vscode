@@ -29,7 +29,7 @@ async function startMCPHttpServer(context, port = 3001) {
   extensionContext = context
 
   // 从配置中读取端口
-  const config = vscode.workspace.getConfiguration('mybricks')
+  const config = vscode.workspace.getConfiguration('mybricksTaro')
   const configuredPort = config.get('mcp.port', port)
   serverPort = configuredPort
 

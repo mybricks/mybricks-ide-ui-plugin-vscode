@@ -8,7 +8,7 @@ const SUPPORTED_EXTENSIONS = ['.ui', '.mybricks']
  * @returns {string} 如 '.ui' 或 '.mybricks'
  */
 function getPreferredExtension() {
-  const ext = vscode.workspace.getConfiguration('mybricks').get('preferredFileExtension')
+  const ext = vscode.workspace.getConfiguration('mybricksTaro').get('preferredFileExtension')
   if (typeof ext === 'string' && ext.startsWith('.')) return ext
   if (ext === 'ui' || ext === 'mybricks') return '.' + ext
   return '.ui'

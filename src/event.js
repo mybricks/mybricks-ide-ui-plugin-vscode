@@ -106,7 +106,7 @@ function handleSidebarMessage(webviewView, context) {
         case 'openRecentFile': {
           const filePath = message.filePath
           if (fs.existsSync(filePath)) {
-            // 直接用 vscode.open，VSCode 会自动使用 mybricks.editor CustomEditor
+            // 直接用 vscode.open，VSCode 会自动使用 mybricks.taro.editor CustomEditor
             vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath), { preview: false })
           } else {
             // 文件不存在，从最近列表中移除

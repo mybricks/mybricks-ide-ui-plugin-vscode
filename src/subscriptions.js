@@ -27,7 +27,7 @@ function registerSubscriptions(context) {
 
   // 注册命令：右键菜单"用 MyBricks 打开"（CustomEditor 模式：直接用 vscode.open）
   const openFileCommand = vscode.commands.registerCommand(
-    'mybricks.openFile',
+    'mybricks.taro.openFile',
     async (uri) => {
       if (uri) {
         await vscode.commands.executeCommand('vscode.open', uri, { preview: false })
@@ -37,7 +37,7 @@ function registerSubscriptions(context) {
 
   // 注册命令：右键文件夹"新建 .ui 文件"
   const newUIFileCommand = vscode.commands.registerCommand(
-    'mybricks.newUIFile',
+    'mybricks.taro.newUIFile',
     async (uri) => {
       const folderUri = uri?.fsPath ? uri : vscode.workspace.workspaceFolders?.[0]?.uri
       if (!folderUri) {
@@ -89,7 +89,7 @@ function registerSubscriptions(context) {
 
   // 注册命令：初始化 MyBricks 环境
   const initCommand = vscode.commands.registerCommand(
-    'mybricks.init',
+    'mybricks.taro.init',
     async () => {
       runInit(context)
     }
@@ -97,7 +97,7 @@ function registerSubscriptions(context) {
 
   // 注册命令：开启 MCP 服务
   const enableMCPCommand = vscode.commands.registerCommand(
-    'mybricks.enableMCPService',
+    'mybricks.taro.enableMCPService',
     async () => {
       // 1. 若 MCP 服务未启动则先启动
       if (!isMCPServerRunning()) {
@@ -109,7 +109,7 @@ function registerSubscriptions(context) {
       await setupMCPWorkspace(context, serverUrl)
 
       // 3. 将「是否开启 MCP」配置设为 true
-      await vscode.workspace.getConfiguration('mybricks').update('mcp.enabled', true, vscode.ConfigurationTarget.Global)
+      await vscode.workspace.getConfiguration('mybricksTaro').update('mcp.enabled', true, vscode.ConfigurationTarget.Global)
 
       // 4. 通知所有已打开面板 setting 已更新
       webviewManager.notifyAllPanels('mcpSettingChanged', { enabled: true })
@@ -121,11 +121,11 @@ function registerSubscriptions(context) {
 
   // 监听配置变化，通知所有已打开的设计器面板（MCP 开关、AI Token）
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration('mybricks.mcp.enabled')) {
-      const enabled = vscode.workspace.getConfiguration('mybricks').get('mcp.enabled') === true
+    if (e.affectsConfiguration('mybricksTaro.mcp.enabled')) {
+      const enabled = vscode.workspace.getConfiguration('mybricksTaro').get('mcp.enabled') === true
       webviewManager.notifyAllPanels('mcpSettingChanged', { enabled })
     }
-    if (e.affectsConfiguration('mybricks.ai.token')) {
+    if (e.affectsConfiguration('mybricksTaro.ai.token')) {
       webviewManager.notifyAllPanels('aiTokenChanged', {})
     }
   })
@@ -133,7 +133,7 @@ function registerSubscriptions(context) {
   // 注册侧边栏视图提供者
   const provider = webviewView.createProvider(context)
   const webviewViewProvider = vscode.window.registerWebviewViewProvider(
-    'mybricks.ide',
+    'mybricks.taro.ide',
     provider
   )
 

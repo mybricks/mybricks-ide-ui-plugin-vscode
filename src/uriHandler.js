@@ -5,12 +5,12 @@ const path = require('path')
  * 注册 URI Handler，使浏览器或外部可通过 vscode:// 链接唤起 Cursor/VSCode 并执行命令
  *
  * 链接格式（Cursor 会接管 vscode:// 协议）：
- * - 打开 MyBricks 设计器: vscode://mybricks.mybricks-webview/open
- * - 打开并加载指定文件: vscode://mybricks.mybricks-webview/open?path=<相对或绝对路径>
+ * - 打开 MyBricks 设计器: vscode://mybricks.mybricks-taro-webview/open
+ * - 打开并加载指定文件: vscode://mybricks.mybricks-taro-webview/open?path=<相对或绝对路径>
  *
  * 浏览器中可放置链接或按钮，例如：
- * <a href="vscode://mybricks.mybricks-webview/open">在 IDE 中打开</a>
- * 或 window.open('vscode://mybricks.mybricks-webview/open')
+ * <a href="vscode://mybricks.mybricks-taro-webview/open">在 IDE 中打开</a>
+ * 或 window.open('vscode://mybricks.mybricks-taro-webview/open')
  *
  * @param {vscode.ExtensionContext} context
  * @returns {vscode.Disposable}
@@ -30,7 +30,7 @@ function registerUriHandler(context) {
             const absolutePath = decoded.startsWith(firstRoot)
               ? decoded
               : path.join(firstRoot, decoded)
-            // CustomEditor 模式：直接用 vscode.open 打开文件，VSCode 会自动使用 mybricks.editor
+            // CustomEditor 模式：直接用 vscode.open 打开文件，VSCode 会自动使用 mybricks.taro.editor
             const uri = vscode.Uri.file(absolutePath)
             vscode.commands.executeCommand('vscode.open', uri, { preview: false })
           } catch (_) {

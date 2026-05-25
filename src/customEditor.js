@@ -180,7 +180,7 @@ class MyBricksEditorProvider {
     // CustomEditorProvider（可写）：onDidChangeCustomDocument 驱动标签脏状态与关闭弹窗
     // saveCustomDocument 由 Ctrl+S 触发，通知前端执行保存
     const disposable = vscode.window.registerCustomEditorProvider(
-      'mybricks.editor',
+      'mybricks.taro.editor',
       provider,
       {
         webviewOptions: {
