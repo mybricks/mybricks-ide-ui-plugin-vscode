@@ -286,6 +286,7 @@ export default function App() {
 
     openSetting({
       value: savedSettings,
+      name: packageJson.displayName ?? undefined,
       version: packageJson.version ?? undefined,
       aboutItems: items,
       channels: infraAvailable ? ['infra', 'mybricks', 'custom'] : ['mybricks', 'custom'],
