@@ -41,7 +41,7 @@ function registerUriHandler(context) {
           vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectMany: false,
-            filters: { 'MyBricks 设计文件': ['ui', 'mybricks'] },
+            filters: { 'MyBricks 设计文件': ['tui'] },
             title: '打开 MyBricks 设计文件',
           }).then((uris) => {
             if (uris && uris[0]) {

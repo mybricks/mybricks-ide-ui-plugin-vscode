@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const vscode = require('vscode')
 const { getInstance: getWebviewManager } = require('./manager/webviewManager')
-const { getPreferredExtension } = require('./fileExtension')
+const { getPreferredExtension, isMybricksFile, normalizeExtension } = require('./fileExtension')
 const { getWorkspaceFolder } = require('../utils/utils')
 const { STATE_KEYS } = require('../utils/constants')
 
@@ -28,7 +28,7 @@ function handleSidebarMessage(webviewView, context) {
     const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab
     const input = activeTab?.input
     const filePath = input?.uri?.fsPath
-    if (filePath && (filePath.endsWith('.ui') || filePath.endsWith('.mybricks'))) {
+    if (filePath && isMybricksFile(filePath)) {
       webviewView.webview.postMessage({ command: 'activeFileChanged', filePath })
     } else {
       webviewView.webview.postMessage({ command: 'activeFileChanged', filePath: null })
@@ -45,11 +45,12 @@ function handleSidebarMessage(webviewView, context) {
   webviewView.webview.onDidReceiveMessage(
     async (message) => {
       switch (message.command) {
-        // 新建 .ui 文件（侧边栏按钮：输入文件名后创建并打开）
+        // 新建 .tui 文件（侧边栏按钮：输入文件名后创建并打开）
         case 'openIDE': {
           const preferredExt = getPreferredExtension()
+          const normalizedPreferredExt = normalizeExtension(preferredExt)
           const workspaceFolder = getWorkspaceFolder(context)
-          const extLabel = preferredExt.replace('.', '').toUpperCase()
+          const extLabel = preferredExt.replace(/^\./, '').toUpperCase()
           // codeflicker-fix: DOC-Issue-003/bwifp75oe8bvl5lre80v
           const lastSaveDir = context.workspaceState.get(STATE_KEYS.LAST_SAVE_DIR)
           const baseDir = lastSaveDir && fs.existsSync(lastSaveDir)
@@ -63,7 +64,7 @@ function handleSidebarMessage(webviewView, context) {
             title: '新建 MyBricks 设计文件',
             defaultUri,
             filters: {
-              [`MyBricks 设计文件 (${extLabel})`]: [preferredExt.replace('.', '')],
+              [`MyBricks 设计文件 (${extLabel})`]: ['tui'],
               '所有文件': ['*'],
             },
             saveLabel: '新建',
@@ -73,7 +74,7 @@ function handleSidebarMessage(webviewView, context) {
             const ext = path.extname(filePath)
             if (!ext) {
               filePath = filePath + preferredExt
-            } else if (ext !== '.ui' && ext !== '.mybricks') {
+            } else if (ext !== '.tui') {
               filePath = path.join(path.dirname(filePath), path.basename(filePath, ext) + preferredExt)
             }
             context.workspaceState.update(STATE_KEYS.LAST_SAVE_DIR, path.dirname(filePath))
@@ -91,7 +92,7 @@ function handleSidebarMessage(webviewView, context) {
           const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab
           const activePath = activeTab?.input?.uri?.fsPath
           const activeFilePath =
-            activePath && (activePath.endsWith('.ui') || activePath.endsWith('.mybricks'))
+            activePath && isMybricksFile(activePath)
               ? activePath
               : null
           webviewView.webview.postMessage({

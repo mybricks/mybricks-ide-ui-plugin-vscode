@@ -9,7 +9,7 @@ const { getInstance: getWebviewManager } = require('./manager/webviewManager')
 /**
  * MyBricksEditorProvider - 基于 vscode.CustomEditorProvider 的自定义编辑器
  *
- * 每次用户打开 .ui / .mybricks 文件时，VSCode 会调用 resolveCustomEditor，
+ * 每次用户打开 .tui 文件时，VSCode 会调用 resolveCustomEditor，
  * 为该文件创建一个独立的 WebviewPanel，天然支持多文件多标签。
  */
 class MyBricksEditorProvider {

@@ -1,6 +1,6 @@
 {
   "name": "mybricks-taro-webview",
-  "displayName": "VibeTaroUI",
+  "displayName": "VibeTaroUI2",
   "description": "Vibe prototype、Vibe design、Vibe Coding",
   "icon": "images/icon.png",
   "version": "0.0.42",
@@ -39,10 +39,7 @@
         "displayName": "VibeTaro Editor",
         "selector": [
           {
-            "filenamePattern": "*.ui"
-          },
-          {
-            "filenamePattern": "*.mybricks"
+            "filenamePattern": "*.tui"
           }
         ],
         "priority": "default"
@@ -64,7 +61,7 @@
       },
       {
         "command": "mybricks.taro.newUIFile",
-        "title": "新建 .ui 文件"
+        "title": "新建 .tui 文件"
       },
       {
         "command": "mybricks.taro.enableMCPService",
@@ -75,7 +72,7 @@
       "explorer/context": [
         {
           "command": "mybricks.taro.openFile",
-          "when": "resourceExtname == .mybricks || resourceExtname == .ui",
+          "when": "resourceExtname == .tui",
           "group": "navigation"
         },
         {
@@ -89,7 +86,7 @@
       "activitybar": [
         {
           "id": "mybricks-taro-sidebar",
-          "title": "VibeTaroUI",
+          "title": "VibeTaroUI2",
           "icon": "images/icon.png"
         }
       ]
@@ -118,12 +115,11 @@
         },
         "mybricksTaro.preferredFileExtension": {
           "type": "string",
-          "default": ".ui",
+          "default": ".tui",
           "enum": [
-            ".ui",
-            ".mybricks"
+            ".tui"
           ],
-          "description": "新建/另存为时默认使用的文件后缀；同时支持 .ui 与 .mybricks 打开。"
+          "description": "新建/另存为时默认使用 .tui 后缀。"
         }
       }
     }
@@ -160,5 +156,8 @@
     "@mybricks/tarojs-runtime": "^0.0.2",
     "@mybricks/tarojs-taro-h5": "^0.0.4",
     "@nutui/icons-react-taro": "^3.0.2-cpp.3.beta.9"
+  },
+  "volta": {
+    "node": "20.18.0"
   }
 }

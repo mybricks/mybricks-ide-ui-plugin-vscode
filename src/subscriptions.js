@@ -35,7 +35,7 @@ function registerSubscriptions(context) {
     }
   )
 
-  // 注册命令：右键文件夹"新建 .ui 文件"
+  // 注册命令：右键文件夹"新建 .tui 文件"
   const newUIFileCommand = vscode.commands.registerCommand(
     'mybricks.taro.newUIFile',
     async (uri) => {
@@ -59,7 +59,7 @@ function registerSubscriptions(context) {
         }
       }
 
-      const input = await vscode.window.showInputBox({
+            const input = await vscode.window.showInputBox({
         prompt: '请输入文件名（无需填写后缀）',
         placeHolder: 'untitled',
         validateInput: (value) => {
@@ -71,7 +71,7 @@ function registerSubscriptions(context) {
 
       if (input === undefined) return
 
-      const fileName = input.trim().replace(/\.ui$/, '') + '.ui'
+      const fileName = input.trim().replace(/\.tui$/, '') + '.tui'
       const newFileUri = vscode.Uri.joinPath(folderUri, fileName)
 
       try {
@@ -137,7 +137,7 @@ function registerSubscriptions(context) {
     provider
   )
 
-  // 注册自定义编辑器（用于打开 .ui / .mybricks 设计文件）
+  // 注册自定义编辑器（用于打开 .tui 设计文件）
   registerCustomEditor(context)
 
   // 将所有订阅添加到 context.subscriptions

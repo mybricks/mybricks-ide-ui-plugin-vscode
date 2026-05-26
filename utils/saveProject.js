@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 const { getWorkspaceFolder } = require('./utils')
-const { getPreferredExtension } = require('../src/fileExtension')
+const { getPreferredExtension, normalizeExtension } = require('../src/fileExtension')
 
 /**
  * 生成一个符合 RFC 4122 v4 规范的唯一 ID
@@ -87,7 +87,7 @@ function saveFileContent(context, data) {
 }
 
 /**
- * 保存项目：若有当前打开的设计文件（.ui / .mybricks）则直接写回，否则弹窗选择保存位置（默认使用配置的优先后缀）
+ * 保存项目：若有当前打开的设计文件（.tui）则直接写回，否则弹窗选择保存位置（默认使用配置的优先后缀）
  * @param {vscode.ExtensionContext} context - 扩展上下文
  * @param {Object} saveContent - 要保存的项目数据
  * @param {string|null} [currentFilePath] - 当前项目文件路径（有则直接保存，不弹窗）
@@ -121,12 +121,10 @@ async function saveProject(
       if (input == null) return { success: false, message: '用户取消保存' }
 
       let fileName = input.trim()
-      // 没有后缀或后缀不是支持的格式，统一补上首选后缀
-      const ext = path.extname(fileName)
-      if (!ext) {
-        fileName = fileName + preferredExt
-      } else if (ext !== '.ui' && ext !== '.mybricks') {
-        fileName = path.basename(fileName, ext) + preferredExt
+      const normalizedPreferredExt = normalizeExtension(preferredExt)
+      // 没有后缀时补上首选后缀
+      if (!fileName.toLowerCase().endsWith(normalizedPreferredExt)) {
+        fileName = fileName + normalizedPreferredExt
       }
 
       savePath = path.join(workspaceFolder.fsPath, fileName)

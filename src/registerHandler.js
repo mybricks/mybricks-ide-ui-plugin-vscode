@@ -3,7 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const axios = require('axios')
 
-const { isMybricksFile, getPreferredExtension } = require('./fileExtension')
+const { isMybricksFile, getPreferredExtension, getFileBaseName } = require('./fileExtension')
 const {
   getFileContent,
   saveFileContent,
@@ -229,7 +229,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
     let exportDir = path.relative(root, dir)
     if (!exportDir || exportDir.startsWith('..')) exportDir = '.'
     const projectName =
-      path.basename(filePath, path.extname(filePath)) ||
+      getFileBaseName(filePath) ||
       'my_project'
     const res = { projectName, exportDir }
     console.log('[导出] getCurrentExportDefaults', {
@@ -419,7 +419,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
   // 获取工作区文件列表（用于 AI additionalDirectory / 已打开工作区目录）
   // 递归读取工作区根目录下所有文件，过滤规则：
   //   1. 跳过常见构建/依赖目录（node_modules、.git、dist 等）
-  //   2. 跳过 .ui / .mybricks 设计文件
+  //   2. 跳过 .tui 设计文件
   //   3. 遵循工作区根的 .gitignore / .ignore 规则
   //   4. 默认隐藏 . 开头的文件/目录
   messageApiInstance.registerHandler('getWorkspaceFiles', async () => {
@@ -434,7 +434,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
       '.idea', '.vscode', '.DS_Store',
     ])
     // 跳过的文件扩展名
-    const SKIP_EXTS = new Set(['.ui', '.mybricks'])
+    const SKIP_EXTS = new Set(['.tui'])
     // 文件大小上限（1MB），避免把大文件也读入内存
     const MAX_FILE_SIZE = 1 * 1024 * 1024
 

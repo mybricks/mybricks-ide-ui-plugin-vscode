@@ -205,7 +205,7 @@ function readFilesFromRoot(root, virtualRoot = '') {
     '.svelte-kit', '__pycache__', '.pytest_cache', '.venv', 'venv',
     '.idea', '.vscode', '.DS_Store',
   ])
-  const skipExts = new Set(['.ui', '.mybricks'])
+  const skipExts = new Set(['.tui'])
   const maxFileSize = 1 * 1024 * 1024
   const results = []
 
