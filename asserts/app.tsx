@@ -594,7 +594,7 @@ export default function App() {
     ;(window as any)._mybricksOnEdit_ = markEdited
   }, [markEdited])
 
-  // 保存：直接保存 dump() 的结果到当前设计文件（.ui / .mybricks）
+  // 保存：直接保存 dump() 的结果到当前设计文件（.tui）
   // silent=true 时前端静默（不弹 antd 消息）；backendSilent=true 时后端也静默（不弹 VSCode 右下角提示）
   const save = useCallback(
     async (silent = false, backendSilent = false) => {

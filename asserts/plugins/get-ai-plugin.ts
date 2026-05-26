@@ -12,7 +12,6 @@ import {
 
 import componentRuntime from "./componentRuntime";
 import promptSections from "./prompt";
-import { createOperateApiTool } from "./tools/operate-api";
 import skills from "./skills";
 
 export type OnDownloadParams = {
@@ -107,8 +106,6 @@ export default async ({ key, useInfra = true, onDownload, codingConfig }: GetAiP
       providers: setting.providers,
     }
   } : {}
-
-  const operateApiTool = createOperateApiTool(key);
 
   /** 通过 webViewMessageApi 读取已打开文件夹，并挂载到 extra/workspace/ 虚拟目录 */
   async function getWorkspaceFiles(): Promise<Array<{ path: string; content: string }>> {
@@ -452,7 +449,6 @@ export default async ({ key, useInfra = true, onDownload, codingConfig }: GetAiP
     codingConfig,
     // plugins,
     // ...commonCodePreset
-    tools: [operateApiTool],
     skills,
     // ------ taro ------
     componentRuntime,

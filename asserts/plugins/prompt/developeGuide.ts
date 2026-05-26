@@ -41,7 +41,6 @@ const architectureSection = `\`\`\`
 ├─ app.tsx                # 应用渲染入口，有且仅有一个，必须写在根路径，文件名必须为app.tsx
 ├─ app.less               # 全局样式（可选）
 ├─ store.ts               # 全局 store（可选）
-├─ scheme.ts              # 接口 scheme （项目唯一文件且必须，而且在dataSource.ts和 setup.ts之前写入）
 ├─ dataSource.ts          # 真实接口（项目唯一文件且必须）
 ├─ setup.ts               # mock接口（项目唯一文件且必须）
 ├─ requirement.md         # 需求文档（又名prd、PRD，在最后写入）
@@ -153,15 +152,6 @@ popupRef 说明：
 - 命名：使用语义化 PascalCase，名称应直接反映其在页面中的位置与职责；
 - 实现：每个独立区块写成 \`const 区块名 = comRef(...)\`；
 - 区块独立性：父组件只负责布局与子区块挂载，状态和业务逻辑各自在组件内部或对应 hook 中管理；
-
-### 接口操作规范
-- \`scheme.ts\` 是 \`dataSource.ts\` 和 \`setup.ts\` 的接口约束基准，三者必须保持一致。
-
-更新时机：
-- 用户新增、删除或修改了接口相关功能时，必须同步更新；
-- 后端返回了新的真实接口定义、字段结构、业务约束或接口映射关系时，必须立即同步更新；
-- \`scheme.ts\`、\`dataSource.ts\`、\`setup.ts\` 任一文件发生接口相关变更时，必须检查其余两个文件是否需要同步更新；
-- 页面功能与接口绑定关系发生变化时，必须同步更新接口使用说明和对应实现；
 `
 
 /**

@@ -90,7 +90,7 @@ function registerHandlers(messageApiInstance, context, filePath) {
     )
   })
 
-  // 获取优先后缀（新建/另存为默认，如 .ui）
+  // 获取优先后缀（新建/另存为默认，如 .tui）
   messageApiInstance.registerHandler('getPreferredFileExtension', () =>
     getPreferredExtension(),
   )
