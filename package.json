@@ -3,7 +3,7 @@
   "displayName": "VibeTaroUI2",
   "description": "Vibe prototype、Vibe design、Vibe Coding",
   "icon": "images/icon.png",
-  "version": "0.0.42",
+  "version": "0.0.43",
   "publisher": "mybricks",
   "scripts": {
     "inspect": "npx @modelcontextprotocol/inspector --config ./mcp.json",
