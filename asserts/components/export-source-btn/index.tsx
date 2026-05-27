@@ -4,24 +4,6 @@ import { generateAiExportFilesFromJSON } from '../code-export'
 
 const vsCodeMessage = (window as any).webViewMessageApi
 
-const buttonStyle: React.CSSProperties = {
-  cursor: 'pointer',
-  width: '100%',
-  textAlign: 'center',
-  height: 26,
-  lineHeight: '26px',
-  borderRadius: 6,
-  border: '1px solid rgba(2, 9, 16, 0.13)',
-  backgroundColor: 'var(--mybricks-bg-color-hover, #F5F5F5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 12,
-  color: 'var(--mybricks-text-color-main)',
-  padding: 0,
-  boxSizing: 'border-box',
-}
-
 function showNotification(type: 'info' | 'warning' | 'error', msg: string, revealPath?: string) {
   if (vsCodeMessage?.call) {
     vsCodeMessage.call('showNotification', { type, message: msg, revealPath: revealPath || '' })
@@ -96,20 +78,24 @@ const ExportSourceBtn: React.FC<ExportSourceBtnProps> = ({ designerRef }) => {
   }, [designerRef, fileName, exportDir])
 
   return (
-    <div style={{ padding: '4px 0' }}>
-      <button
-        type="button"
-        disabled={loading}
-        onClick={handleExport}
-        style={{
-          ...buttonStyle,
-          cursor: loading ? 'not-allowed' : 'pointer',
-          opacity: loading ? 0.6 : 1,
-        }}
-      >
-        {loading ? '导出中...' : '导出源代码'}
-      </button>
-    </div>
+    <button
+      disabled={loading}
+      onClick={handleExport}
+      style={{
+        border: '1px solid var(--mybricks-color-primary)',
+        borderRadius: 6,
+        padding: '3px 12px',
+        backgroundColor: 'var(--mybricks-bg-color-main)',
+        color: 'var(--mybricks-color-primary)',
+        fontWeight: 500,
+        fontSize: 12,
+        lineHeight: '18px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.7 : 1,
+      }}
+    >
+      {loading ? '导出中...' : '导出'}
+    </button>
   )
 }
 

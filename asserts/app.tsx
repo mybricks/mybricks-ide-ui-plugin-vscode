@@ -32,6 +32,7 @@ import {
 } from '@ant-design/icons'
 import packageJson from '../package.json'
 import ExportCode from './components/export-code'
+import ExportSourceBtn from './components/export-source-btn'
 import DepInfoPopoverContent from './components/dep-info-popover'
 import { config as getDesignerConfig } from './config'
 import { useMCP } from './ai/mcp'
@@ -725,6 +726,17 @@ export default function App() {
             createPortal(
               <>
                 <SaveTimeDisplay />
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ExportSourceBtn designerRef={designerRef} />
+                  <SettingOutlined
+                    style={{
+                      color: '#9ca3af',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                    onClick={openAiSetting}
+                  />
+                </div>
                 {/* <Popover
                   trigger="click"
                   placement="bottomRight"
@@ -759,15 +771,6 @@ export default function App() {
                     }}
                   />
                 </Popover> */}
-                <SettingOutlined
-                  style={{
-                    color: '#9ca3af',
-                    fontSize: 14,
-                    cursor: 'pointer',
-                    marginLeft: 6,
-                  }}
-                  onClick={openAiSetting}
-                />
                 {/* <div
                   style={{
                     display: 'flex',

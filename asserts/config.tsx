@@ -5,7 +5,6 @@
 import React from 'react'
 import { createAIPlugin, installAIService } from './ai/mcp'
 import ExportCode from './components/export-code'
-import ExportSourceBtn from './components/export-source-btn'
 import FilePath from './components/file-path'
 import { loadManifest } from './manifestLoader'
 
@@ -239,13 +238,6 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
             type: 'editorRender',
             options: {
               render: () => <FilePath />
-            }
-          },
-          {
-            title: '',
-            type: 'editorRender',
-            options: {
-              render: () => <ExportSourceBtn designerRef={designerRef} />
             }
           },
         ]
