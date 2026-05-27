@@ -1,6 +1,6 @@
 {
   "name": "mybricks-taro-webview",
-  "displayName": "VibeTaroUI2",
+  "displayName": "VibeTaroUI",
   "description": "Vibe prototype、Vibe design、Vibe Coding",
   "icon": "images/icon.png",
   "version": "0.0.43",
@@ -86,7 +86,7 @@
       "activitybar": [
         {
           "id": "mybricks-taro-sidebar",
-          "title": "VibeTaroUI2",
+          "title": "VibeTaroUI",
           "icon": "images/icon.png"
         }
       ]
