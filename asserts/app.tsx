@@ -290,7 +290,7 @@ export default function App() {
       name: packageJson.displayName ?? undefined,
       version: packageJson.version ?? undefined,
       aboutItems: items,
-      channels: infraAvailable ? ['infra', 'mybricks', 'custom'] : ['mybricks', 'custom'],
+      channels: infraAvailable ? ['infra', 'custom'] : ['custom'],
       onSave: async (newValue: Record<string, any>) => {
         await vsCodeMessage?.call('setAISetting', newValue).catch(() => {})
 
