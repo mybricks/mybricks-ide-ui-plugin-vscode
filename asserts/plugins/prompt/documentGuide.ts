@@ -6,7 +6,6 @@ const firstOfAll = `
 - 建议更新（结构或内容变化）：在 tsx 中新增、删除或重命名了 appRef/comRef 节点，或通过 \`app.config.ts\` 的 pages 注册的页面组件发生变化；export default 的根节点类型或子节点类型组合发生变化导致标题层级需调整；JSX 中新增、删除或修改了带事件 props（onClick 等）的元素，或其 className 发生变化；JSX 中新增、删除或修改了渲染组件内状态（useState/useReducer 等 hooks 管理的状态）的元素，或其 className 发生变化；JSX 中新增、删除或修改了触发 datasource 调用的元素，或其 className 发生变化；某节点的 UI 结构、交互或业务含义发生明显变化；
 - 无需更新：tsx 未被修改，且现有 JSDoc 注释已正确反映当前源码的节点结构、事件与说明；仅修改了 style.less 等与节点行为无关的文件；
 <JSDoc 注释编写规范>
-
   <节点>
   按「在 JSX 中依赖顺序」为每个节点分别写出 JSDoc 注释。
   - appRef 应用节点
@@ -24,7 +23,6 @@ const firstOfAll = `
   </注释位置>
 
   <节点说明>
-  
   每个节点 JSDoc 统一使用 @mybricks 自定义 tag 承载结构化信息，@mybricks 下方直接书写缩进结构；字段名保持稳定，字段内容按原 README.md 的语义填写。不要使用多层 Markdown 列表或代码围栏表达结构化数据。
   - name：节点名称，对应代码中节点变量声明的变量名，如果是export default 导出，则对应文件名；
   - title：根据节点内容与名称写出简洁的语义化标题，体现节点职责，避免与组件名简单重复（如组件叫 SignIn 时 title 可用「登录页」而非「登录」）；
@@ -85,11 +83,8 @@ const firstOfAll = `
   - 流程图须真实完整：严格依据事件处理函数与 hooks 回调内的实际代码逻辑来绘制，不省略、不捏造。
   - 分支流程必须完整表达：代码中的 if/else、三元判断、early return、请求成功/失败等所有分支，都必须在流程图中用条件节点 {} 和 |分支标注| 画出；每个分支（如「通过」「不通过」「成功」「失败」）及其后续步骤都须独立延伸，不得只写主流程而省略条件分支。
   </节点说明>
-
 </JSDoc 注释编写规范>
 
-<基于 tsx 的 JSDoc 注释示例>
-如果某一个组件源代码如下（包含 dataSource.ts 接口文件、各页面的 tsx 文件），可以看到有三个comRef（其中两个为页面节点）、一个appRef，所以需要为一个app节点、两个页面节点、一个组件节点分别补充 JSDoc 注释。每个 appRef / comRef / popupRef 声明都必须有自己的 JSDoc 注释。
 <基于 tsx 的 JSDoc 注释示例>
 如果某一个组件源代码如下（包含 dataSource.ts 接口文件、各页面的 tsx 文件），可以看到有三个comRef（其中两个为页面节点）、一个appRef，所以需要为一个app节点、两个页面节点、一个组件节点分别补充 JSDoc 注释。每个 appRef / comRef / popupRef 声明都必须有自己的 JSDoc 注释。
 
