@@ -53,6 +53,10 @@ export default defineConfig({
           'react-dom/client': 'ReactDOM',
           'antd': 'antd',
           '@ant-design/icons': 'icons',
+          '@babel/parser': 'Babel.packages.parser',
+          '@babel/traverse': 'Babel.packages.traverse.default',
+          '@babel/generator': 'Babel.packages.generator.default',
+          '@babel/types': 'Babel.packages.types',
         },
       },
       
@@ -64,6 +68,10 @@ export default defineConfig({
         'antd',
         'dayjs',
         '@ant-design/icons',
+        '@babel/parser',
+        '@babel/traverse',
+        '@babel/generator',
+        '@babel/types',
       ],
     },
     
