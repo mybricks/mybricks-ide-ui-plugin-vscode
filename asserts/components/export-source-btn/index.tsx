@@ -58,7 +58,7 @@ const ExportSourceBtn: React.FC = () => {
         return
       }
 
-      const exportFiles = generateAiExportFilesFromResources(resourceResult)
+      const exportFiles = await generateAiExportFilesFromResources(resourceResult)
       if (!exportFiles.length) {
         showNotification('error', '未生成可导出的源代码文件')
         return

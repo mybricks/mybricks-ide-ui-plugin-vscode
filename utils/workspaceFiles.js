@@ -119,11 +119,53 @@ function deleteWorkspaceFiles(relativePaths) {
   }
 }
 
+function normalizeFileWritePayload(item) {
+  const encoding = item && item.encoding === 'base64' ? 'base64' : 'utf8'
+
+  if (encoding === 'base64') {
+    const base64Content = item && item.content != null ? String(item.content) : ''
+    return {
+      encoding,
+      content: Buffer.from(base64Content, 'base64'),
+    }
+  }
+
+  return {
+    encoding,
+    content: item && item.content != null ? String(item.content) : '',
+  }
+}
+
+function readExistingFileContent(filePath, encoding) {
+  if (encoding === 'base64') {
+    return fs.readFileSync(filePath)
+  }
+
+  return fs.readFileSync(filePath, 'utf-8')
+}
+
+function writeFileContent(filePath, content, encoding) {
+  if (encoding === 'base64') {
+    fs.writeFileSync(filePath, content)
+    return
+  }
+
+  fs.writeFileSync(filePath, content, 'utf-8')
+}
+
+function isSameFileContent(current, next, encoding) {
+  if (encoding === 'base64') {
+    return Buffer.isBuffer(current) && Buffer.isBuffer(next) && current.equals(next)
+  }
+
+  return current === next
+}
+
 /**
  * 出码 results 结构：数组项为 { name, type: 'file'|'folder', content?, children? }
  * 递归创建目录和文件
  * @param {string} basePath - 基础路径（相对工作区根），如 '' 或 'src'
- * @param {Array<{ name: string, type: string, content?: string, children?: Array }>} results - 出码返回的树结构
+ * @param {Array<{ name: string, type: string, content?: string, encoding?: 'utf8' | 'base64', children?: Array }>} results - 出码返回的树结构
  * @returns {{ ok: true, written: string[] } | { error: string, written?: string[] }}
  */
 function writeWorkspaceFilesFromResults(basePath, results) {
@@ -155,7 +197,7 @@ function writeWorkspaceFilesFromResults(basePath, results) {
       if (shouldSkipPath(itemPath)) continue
 
       if (type === 'file') {
-        const content = item.content != null ? String(item.content) : ''
+        const payload = normalizeFileWritePayload(item)
         try {
           const dir = path.dirname(itemPath)
           if (!fs.existsSync(dir)) {
@@ -164,10 +206,10 @@ function writeWorkspaceFilesFromResults(basePath, results) {
           // 增量更新：仅当文件不存在或内容不一致时才写入
           const exists = fs.existsSync(itemPath)
           if (exists) {
-            const current = fs.readFileSync(itemPath, 'utf-8')
-            if (current === content) continue
+            const current = readExistingFileContent(itemPath, payload.encoding)
+            if (isSameFileContent(current, payload.content, payload.encoding)) continue
           }
-          fs.writeFileSync(itemPath, content, 'utf-8')
+          writeFileContent(itemPath, payload.content, payload.encoding)
           written.push(path.relative(root, itemPath))
         } catch (err) {
           throw new Error(`写入文件失败 ${path.relative(root, itemPath)}: ${err.message}`)

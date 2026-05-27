@@ -4,6 +4,7 @@ import {
   type ComponentData,
   type FileItem,
 } from './structureGenerator'
+import { localizeRemoteTabBarIcons } from './tabbarGenerator'
 
 export type ExportJSON = any
 
@@ -74,12 +75,13 @@ export function transformGeneratedCodeFiles(files: FileItem[]): FileItem[] {
   return mergeTransformedCodeFiles(files, transformedFiles)
 }
 
-export function generateAiExportFiles(data: ComponentData): FileItem[] {
+export async function generateAiExportFiles(data: ComponentData): Promise<FileItem[]> {
   const files = generateCodeStructure(data)
-  return transformGeneratedCodeFiles(files)
+  const transformedFiles = transformGeneratedCodeFiles(files)
+  return localizeRemoteTabBarIcons(transformedFiles)
 }
 
-export function generateAiExportFilesFromJSON(exportJSON: ExportJSON): FileItem[] {
+export async function generateAiExportFilesFromJSON(exportJSON: ExportJSON): Promise<FileItem[]> {
   const context = getAiExportContext(exportJSON)
 
   if (!context?.data?.files?.length) {
@@ -89,7 +91,7 @@ export function generateAiExportFilesFromJSON(exportJSON: ExportJSON): FileItem[
   return generateAiExportFiles(context.data)
 }
 
-export function generateAiExportFilesFromResources(resourceResult: any): FileItem[] {
+export async function generateAiExportFilesFromResources(resourceResult: any): Promise<FileItem[]> {
   const rawList = Array.isArray(resourceResult) ? resourceResult : [resourceResult]
   const files = rawList.flatMap((item) => {
     const resourceFiles = Array.isArray(item?.files)

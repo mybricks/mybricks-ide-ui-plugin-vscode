@@ -1,8 +1,10 @@
 import taroTemplateJson from './taro-template.json'
 
+export type FileContent = string | Blob
+
 export interface FileItem {
   fileName: string
-  content: string
+  content: FileContent
 }
 
 export interface ComponentData {

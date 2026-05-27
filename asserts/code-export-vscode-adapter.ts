@@ -5,7 +5,7 @@
 
 export interface CodeExportFileItem {
   fileName: string
-  content: string
+  content: string | Blob
   type?: 'file' | 'directory'
 }
 
@@ -29,9 +29,42 @@ function getWebViewMessageApi() {
   return typeof window !== 'undefined' ? (window as any).webViewMessageApi : undefined
 }
 
-function fileItemsToTree(
+function normalizeTextContent(fileName: string, content: string) {
+  const suffix = fileName.split('.').pop()
+  if (suffix !== 'less') {
+    return content
+  }
+
+  return content.replace(/:frame\s*\{[^}]*\}/g, '').trim()
+}
+
+async function serializeFileContent(file: CodeExportFileItem) {
+  if (typeof file.content === 'string') {
+    return {
+      encoding: 'utf8' as const,
+      content: normalizeTextContent(file.fileName, file.content),
+    }
+  }
+
+  const arrayBuffer = await file.content.arrayBuffer()
+  const uint8Array = new Uint8Array(arrayBuffer)
+  let binary = ''
+  const chunkSize = 0x8000
+
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, i + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+
+  return {
+    encoding: 'base64' as const,
+    content: btoa(binary),
+  }
+}
+
+async function fileItemsToTree(
   files: CodeExportFileItem[]
-): Array<{ name: string; type: string; content?: string; children?: Array<unknown> }> {
+): Promise<Array<{ name: string; type: string; content?: string; encoding?: 'utf8' | 'base64'; children?: Array<unknown> }>> {
   const root: { name: string; type: string; children: Array<unknown> } = {
     name: '',
     type: 'folder',
@@ -39,21 +72,17 @@ function fileItemsToTree(
   }
   for (const file of files) {
     const parts = file.fileName.split('/').filter(Boolean)
+    const serializedFile = await serializeFileContent(file)
     let current: { name: string; type: string; children: Array<unknown> } = root
     for (let j = 0; j < parts.length; j++) {
       const isLast = j === parts.length - 1
       const part = parts[j]
       if (isLast) {
-        const suffix = file.fileName.split('.').pop();
-        let content = file.content != null ? String(file.content) : '';
-        if (suffix === 'less') {
-          // 去除 :frame { ... } 块
-          content = content.replace(/:frame\s*\{[^}]*\}/g, '').trim();
-        }
         current.children.push({
           name: part,
           type: 'file',
-          content,
+          content: serializedFile.content,
+          encoding: serializedFile.encoding,
         })
       } else {
         let folder = current.children.find(
@@ -71,6 +100,7 @@ function fileItemsToTree(
     name: string
     type: string
     content?: string
+    encoding?: 'utf8' | 'base64'
     children?: Array<unknown>
   }>
 }
@@ -140,27 +170,23 @@ export function exportCodeToVSCode(
     : pickDir()
 
   return resolveDir
-    .then((dirPath: string) => {
+    .then(async (dirPath: string) => {
       const dir = dirPath.replace(/\\/g, '/').replace(/\/+$/, '')
       const basePath = folderName ? `${dir}/${folderName}` : dir
-      const tree = fileItemsToTree(files)
-      return webViewMessageApi
-        .call('writeWorkspaceFiles', {
-          basePath,
-          results: tree,
-          projectMode: false,
-        })
-        .then((writeRes: { error?: string }) => {
-          notifyProgress(totalFiles)
-          if (writeRes?.error) {
-            const writeErr = new Error(writeRes.error)
-            onError?.(writeErr)
-            throw writeErr
-          }
-          onSuccess?.(writeRes)
-          // 返回本次使用的目录路径，供调用方缓存
-          return dirPath
-        })
+      const tree = await fileItemsToTree(files)
+      const writeRes = await webViewMessageApi.call('writeWorkspaceFiles', {
+        basePath,
+        results: tree,
+        projectMode: false,
+      })
+      notifyProgress(totalFiles)
+      if (writeRes?.error) {
+        const writeErr = new Error(writeRes.error)
+        onError?.(writeErr)
+        throw writeErr
+      }
+      onSuccess?.(writeRes)
+      return dirPath
     })
     .catch((err: unknown) => {
       onError?.(err instanceof Error ? err : new Error(String(err)))
