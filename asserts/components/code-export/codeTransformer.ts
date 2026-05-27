@@ -178,8 +178,27 @@ export class CodeTransformer {
       return
     }
 
-    ast.program.body.push(t.importDeclaration([], t.stringLiteral('./reset.less')))
+    const resetImport = t.importDeclaration([], t.stringLiteral('./reset.less'))
+    let lastImportPath: any = null
+
+    traverse(ast, {
+      ImportDeclaration(path: any) {
+        lastImportPath = path
+      },
+      Program: {
+        exit(path: any) {
+          if (lastImportPath) {
+            lastImportPath.insertAfter(resetImport)
+            return
+          }
+
+          path.unshiftContainer('body', resetImport)
+        },
+      },
+    })
   }
+
+
 
   private ensureReactImport(ast: t.File) {
     let hasReactDefaultImport = false

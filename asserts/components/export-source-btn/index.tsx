@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { exportCodeToVSCode } from '../../code-export-vscode-adapter'
-import { generateAiExportFilesFromResources } from '../code-export'
+import { generateAiExportFilesFromJSON } from '../code-export'
 
 const vsCodeMessage = (window as any).webViewMessageApi
 
@@ -30,7 +30,11 @@ function showNotification(type: 'info' | 'warning' | 'error', msg: string, revea
   }
 }
 
-const ExportSourceBtn: React.FC = () => {
+type ExportSourceBtnProps = {
+  designerRef: React.MutableRefObject<any>
+}
+
+const ExportSourceBtn: React.FC<ExportSourceBtnProps> = ({ designerRef }) => {
   const [loading, setLoading] = useState(false)
   const [fileName, setFileName] = useState<string>('mybricks-app')
   const [exportDir, setExportDir] = useState<string>('.')
@@ -44,21 +48,21 @@ const ExportSourceBtn: React.FC = () => {
   }, [])
 
   const handleExport = useCallback(async () => {
-    const forApp = (window as any)?._forApp_
-    if (!forApp || typeof forApp._getResourcesCode_ !== 'function') {
-      showNotification('error', 'window._forApp_._getResourcesCode_ 不可用，请确认组件已加载')
+    const designer = designerRef?.current
+    if (!designer || typeof designer.toJSON !== 'function') {
+      showNotification('error', 'designerRef.current.toJSON 不可用，请确认设计器已加载')
       return
     }
 
     setLoading(true)
     try {
-      const resourceResult = forApp._getResourcesCode_('application')
-      if (!resourceResult || (Array.isArray(resourceResult) && resourceResult.length === 0)) {
-        showNotification('error', '未获取到导出数据')
+      const exportJSON = designer.toJSON()
+      if (!exportJSON) {
+        showNotification('error', '未获取到导出 JSON 数据')
         return
       }
 
-      const exportFiles = await generateAiExportFilesFromResources(resourceResult)
+      const exportFiles = await generateAiExportFilesFromJSON(exportJSON)
       if (!exportFiles.length) {
         showNotification('error', '未生成可导出的源代码文件')
         return
@@ -89,7 +93,7 @@ const ExportSourceBtn: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [fileName, exportDir])
+  }, [designerRef, fileName, exportDir])
 
   return (
     <div style={{ padding: '4px 0' }}>
