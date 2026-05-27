@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { exportCodeToVSCode } from '../../code-export-vscode-adapter'
+import { generateAiExportFilesFromResources } from '../code-export'
 
 const vsCodeMessage = (window as any).webViewMessageApi
 
@@ -29,7 +30,7 @@ function showNotification(type: 'info' | 'warning' | 'error', msg: string, revea
   }
 }
 
-export default function ExportSourceBtn() {
+const ExportSourceBtn: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [fileName, setFileName] = useState<string>('mybricks-app')
   const [exportDir, setExportDir] = useState<string>('.')
@@ -51,54 +52,33 @@ export default function ExportSourceBtn() {
 
     setLoading(true)
     try {
-      const result = forApp._getResourcesCode_('application')
-      if (!result || (Array.isArray(result) && result.length === 0)) {
-        showNotification('error', '未获取到源代码内容')
+      const resourceResult = forApp._getResourcesCode_('application')
+      if (!resourceResult || (Array.isArray(resourceResult) && resourceResult.length === 0)) {
+        showNotification('error', '未获取到导出数据')
         return
       }
 
-      const rawList = Array.isArray(result) ? result : [result]
-
-      for (const item of rawList) {
-        const files = item?.files || item?.data?.files
-        if (!files || !Array.isArray(files)) {
-          console.warn('[导出源代码] 跳过无 files 的项', item?.id)
-          continue
-        }
-
-        const exportFiles = files
-          .map((f: any) => {
-            const fFileName = f?.fileName || f?.path
-            const content = f?.content ?? f?.source ?? ''
-            if (!fFileName) return null
-            return {
-              fileName: fFileName,
-              content: typeof content === 'string' ? content : String(content),
-            }
-          })
-          .filter(Boolean) as Array<{ fileName: string; content: string }>
-
-        if (exportFiles.length === 0) continue
-
-        // 让后端用 path.join 安全算出 basePath 和绝对路径，避免前端跨平台拼接
-        const pathRes = await vsCodeMessage.call('resolveExportPath', { projectName: fileName, exportDir })
-        if (pathRes?.error) {
-          showNotification('error', `路径解析失败: ${pathRes.error}`)
-          return
-        }
-
-        // 用 basePath 作为 outputDir，跳过目录选择弹窗，直接写入
-        await exportCodeToVSCode(exportFiles, {
-          folderName: '',       // basePath 已包含 projectName，folderName 留空
-          outputDir: pathRes.basePath,
-          onProgress: (progress) => {
-            console.log(`[导出源代码] ${progress.progress}% - ${progress.currentFile}`)
-          },
-        })
-
-        // 通知展示后端返回的绝对路径
-        showNotification('info', `导出源代码成功！路径：${pathRes.fullPath}`, pathRes.fullPath)
+      const exportFiles = generateAiExportFilesFromResources(resourceResult)
+      if (!exportFiles.length) {
+        showNotification('error', '未生成可导出的源代码文件')
+        return
       }
+
+      const pathRes = await vsCodeMessage.call('resolveExportPath', { projectName: fileName, exportDir })
+      if (pathRes?.error) {
+        showNotification('error', `路径解析失败: ${pathRes.error}`)
+        return
+      }
+
+      await exportCodeToVSCode(exportFiles, {
+        folderName: '',
+        outputDir: pathRes.basePath,
+        onProgress: (progress) => {
+          console.log(`[导出源代码] ${progress.progress}% - ${progress.currentFile}`)
+        },
+      })
+
+      showNotification('info', `导出源代码成功！路径：${pathRes.fullPath}`, pathRes.fullPath)
     } catch (error: any) {
       if (error?.message?.includes('取消')) {
         console.log('[导出源代码] 用户取消')
@@ -128,3 +108,5 @@ export default function ExportSourceBtn() {
     </div>
   )
 }
+
+export default ExportSourceBtn
