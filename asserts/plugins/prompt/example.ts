@@ -16,7 +16,6 @@ export const APP_CONFIG_CODE = `
 
   \`\`\`tsx file="app.tsx"
   import { appRef } from 'mybricks'
-    
   import './app.less'
 
   /**
@@ -37,6 +36,7 @@ export const APP_CONFIG_CODE = `
   import { comRef } from 'mybricks'
   import { View, Text, Button } from '@tarojs/components'
   import css from './index.module.less'
+
   /**
    * @mybricks
    * name: SignIn
@@ -77,6 +77,7 @@ export const APP_CONFIG_CODE = `
         setLoading(false)
       }
     }
+
     return (
       <View className={css.container}>
         <Text className={css.title}>登录</Text>
@@ -140,6 +141,7 @@ export const APP_CONFIG_CODE = `
         setLoading(false)
       }
     }
+
     return (
       <View className={css.form}>
         <Button
@@ -167,40 +169,6 @@ export const APP_CONFIG_CODE = `
   })
 
   export default SignUp
-  \`\`\`
-
-  \`\`\`tsx file="pages/signup/index.less"
-  .container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    .title {}
-  }
-  \`\`\`
-
-  \`\`\`tsx file="pages/signup/store.ts"
-  import { makeAutoObservable } from 'mybricks'
-  import Taro from '@tarojs/taro'
-
-  class SignUpStore {
-    constructor() {
-      makeAutoObservable(this)
-    }
-
-    signUp() {
-      logger.info('[SignUpStore/signUp] 开始注册')
-      Taro.showLoading({
-        title: '注册中',
-      })
-      // 注册逻辑省略
-      logger.info('[SignUpStore/signUp] 注册成功')
-      Taro.hideLoading()
-      Taro.showToast({
-        title: '注册成功',
-        icon: 'success',
-      })
-    }
-  }
   \`\`\`
 
   \`\`\`tsx file="pages/signup/index.config.ts"
