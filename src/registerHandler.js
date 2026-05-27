@@ -131,10 +131,27 @@ function registerHandlers(messageApiInstance, context, filePath) {
 
   // 将 projectName + exportDir 安全地拼接为 basePath（相对工作区根）并返回绝对路径
   // 前端传入这两个值，后端用 path.join 处理跨平台路径，避免前端字符串拼接不安全
+  // 若工作区存在 .finclip/project.tui，则直接返回工作区根路径，避免二次弹窗选择目录
   messageApiInstance.registerHandler('resolveExportPath', (data) => {
     const projectName = (data?.projectName || 'mybricks-app').trim()
     const exportDir = data?.exportDir || '.'
     const root = getWorkspaceRoot()
+    const preferredExt = getPreferredExtension()
+    const finclipProjectPath = path.join(root, '.finclip', `project${preferredExt}`)
+
+    if (fs.existsSync(finclipProjectPath)) {
+      const basePath = '.'
+      const fullPath = root
+      console.log('[导出] resolveExportPath: 命中 .finclip/project 文件，直接导出到工作区根目录', {
+        filePath,
+        root,
+        finclipProjectPath,
+        basePath,
+        fullPath,
+      })
+      return { basePath, fullPath }
+    }
+
     const basePath = exportDir === '.' ? projectName : path.join(exportDir, projectName)
     const fullPath = path.resolve(root, basePath)
     if (!fullPath.startsWith(root)) {
@@ -214,9 +231,28 @@ function registerHandlers(messageApiInstance, context, filePath) {
     return res
   })
 
-  // 根据当前设计文件得到导出默认值：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
+  // 根据当前设计文件得到导出默认值：
+  // 1) 若工作区存在 .finclip/project.tui，则默认导出到工作区根目录
+  // 2) 否则：项目名 = 文件名（去后缀），导出目录 = 文件所在目录（相对工作区）
   messageApiInstance.registerHandler('getCurrentExportDefaults', () => {
     const root = getWorkspaceRoot()
+    const preferredExt = getPreferredExtension()
+    const finclipProjectPath = path.join(root, '.finclip', `project${preferredExt}`)
+
+    if (fs.existsSync(finclipProjectPath)) {
+      const res = {
+        projectName: getFileBaseName(filePath) || 'my_project',
+        exportDir: '.',
+      }
+      console.log('[导出] getCurrentExportDefaults: 命中 .finclip/project 文件，默认导出到工作区根目录', {
+        filePath,
+        root,
+        finclipProjectPath,
+        res,
+      })
+      return res
+    }
+
     // 直接使用闭包中的 filePath，不再依赖全局状态
     if (!filePath) {
       console.log('[导出] getCurrentExportDefaults: 无当前设计文件，返回默认', {

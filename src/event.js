@@ -11,6 +11,91 @@ const { STATE_KEYS } = require('../utils/constants')
  * @param {vscode.WebviewView} webviewView - 侧边栏视图
  * @param {vscode.ExtensionContext} context - 扩展上下文
  */
+async function openPreferredWorkspaceProject(context) {
+  const preferredExt = getPreferredExtension()
+  const workspaceFolders = vscode.workspace.workspaceFolders
+  const workspaceRoot = workspaceFolders?.[0]?.uri?.fsPath
+
+  if (!workspaceRoot) {
+    return false
+  }
+
+  const preferredFilePath = path.join(workspaceRoot, '.finclip', `project${preferredExt}`)
+  if (!fs.existsSync(preferredFilePath)) {
+    return false
+  }
+
+  await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(preferredFilePath), 'mybricks.taro.editor', { preview: false })
+  return true
+}
+
+
+/**
+ * 打开设计器入口：
+ * - 优先打开工作区 .finclip/project.{preferredExt}
+ * - 若不存在，则走「新建文件」弹窗创建并打开
+ * 返回 true 表示已成功打开；false 表示用户取消
+ */
+async function openIDEWithPreferredFile(context) {
+  const preferredExt = getPreferredExtension()
+  const workspaceFolders = vscode.workspace.workspaceFolders
+  const workspaceRoot = workspaceFolders?.[0]?.uri?.fsPath
+
+  if (workspaceRoot) {
+    const preferredFilePath = path.join(workspaceRoot, '.finclip', `project${preferredExt}`)
+    if (fs.existsSync(preferredFilePath)) {
+      await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(preferredFilePath), 'mybricks.taro.editor', { preview: false })
+      return true
+    }
+  }
+
+  const normalizedPreferredExt = normalizeExtension(preferredExt)
+  const workspaceFolder = getWorkspaceFolder(context)
+  const extLabel = preferredExt.replace(/^\./, '').toUpperCase()
+  // codeflicker-fix: DOC-Issue-003/bwifp75oe8bvl5lre80v
+  const lastSaveDir = context.workspaceState.get(STATE_KEYS.LAST_SAVE_DIR)
+  const baseDir = lastSaveDir && fs.existsSync(lastSaveDir)
+    ? vscode.Uri.file(lastSaveDir)
+    : workspaceFolder
+  const defaultUri = baseDir
+    ? vscode.Uri.joinPath(baseDir, 'project' + preferredExt)
+    : undefined
+
+  const saveUri = await vscode.window.showSaveDialog({
+    title: '新建 MyBricks 设计文件',
+    defaultUri,
+    filters: {
+      [`MyBricks 设计文件 (${extLabel})`]: [normalizedPreferredExt.replace(/^\./, '')],
+      '所有文件': ['*'],
+    },
+    saveLabel: '新建',
+  })
+
+  if (!saveUri) return false
+
+  let filePath = saveUri.fsPath
+  const ext = path.extname(filePath)
+  if (!ext) {
+    filePath = filePath + preferredExt
+  } else if (ext !== '.tui') {
+    filePath = path.join(path.dirname(filePath), path.basename(filePath, ext) + preferredExt)
+  }
+
+  context.workspaceState.update(STATE_KEYS.LAST_SAVE_DIR, path.dirname(filePath))
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, '{}', 'utf-8')
+  }
+
+  await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(filePath), 'mybricks.taro.editor', { preview: false })
+  return true
+}
+
+/**
+ * 绑定 sidebar 生命周期与消息处理：
+ * - 监听侧栏可见性（点击 activitybar 后自动判定是否直接打开 .finclip/project）
+ * - 维护最近文件/当前激活文件状态同步
+ * - 处理 sidebar 发来的操作消息（新建、打开最近文件等）
+ */
 function handleSidebarMessage(webviewView, context) {
   const webviewManager = getWebviewManager()
 
@@ -22,6 +107,16 @@ function handleSidebarMessage(webviewView, context) {
     })
   }
   webviewManager.on('recentFilesUpdated', updateListener)
+
+  // 监听侧边栏可见性：若存在 .finclip/project.tui 则自动打开并收起 sidebar；否则保持 sidebar 打开
+  const visibilityListener = webviewView.onDidChangeVisibility(async () => {
+    if (!webviewView.visible) return
+
+    const opened = await openPreferredWorkspaceProject(context)
+    if (!opened) return
+
+    await vscode.commands.executeCommand('workbench.action.closeSidebar')
+  })
 
   // 监听 tab 切换（含 CustomEditor，onDidChangeActiveTextEditor 对 CustomEditor 无效）
   const tabChangeListener = vscode.window.tabGroups.onDidChangeTabs(() => {
@@ -38,6 +133,7 @@ function handleSidebarMessage(webviewView, context) {
   // 当 Webview 销毁时，移除监听器
   webviewView.onDidDispose(() => {
     webviewManager.removeListener('recentFilesUpdated', updateListener)
+    visibilityListener.dispose()
     tabChangeListener.dispose()
   })
 
@@ -47,42 +143,43 @@ function handleSidebarMessage(webviewView, context) {
       switch (message.command) {
         // 新建 .tui 文件（侧边栏按钮：输入文件名后创建并打开）
         case 'openIDE': {
-          const preferredExt = getPreferredExtension()
-          const normalizedPreferredExt = normalizeExtension(preferredExt)
-          const workspaceFolder = getWorkspaceFolder(context)
-          const extLabel = preferredExt.replace(/^\./, '').toUpperCase()
-          // codeflicker-fix: DOC-Issue-003/bwifp75oe8bvl5lre80v
-          const lastSaveDir = context.workspaceState.get(STATE_KEYS.LAST_SAVE_DIR)
-          const baseDir = lastSaveDir && fs.existsSync(lastSaveDir)
-            ? vscode.Uri.file(lastSaveDir)
-            : workspaceFolder
-          const defaultUri = baseDir
-            ? vscode.Uri.joinPath(baseDir, 'project' + preferredExt)
-            : undefined
+          await openIDEWithPreferredFile(context)
 
-          vscode.window.showSaveDialog({
-            title: '新建 MyBricks 设计文件',
-            defaultUri,
-            filters: {
-              [`MyBricks 设计文件 (${extLabel})`]: ['tui'],
-              '所有文件': ['*'],
-            },
-            saveLabel: '新建',
-          }).then((saveUri) => {
-            if (!saveUri) return
-            let filePath = saveUri.fsPath
-            const ext = path.extname(filePath)
-            if (!ext) {
-              filePath = filePath + preferredExt
-            } else if (ext !== '.tui') {
-              filePath = path.join(path.dirname(filePath), path.basename(filePath, ext) + preferredExt)
-            }
-            context.workspaceState.update(STATE_KEYS.LAST_SAVE_DIR, path.dirname(filePath))
-            if (!fs.existsSync(filePath)) {
-              fs.writeFileSync(filePath, '{}', 'utf-8')
-            }
-            vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath), { preview: false })
-          })
+          // 旧逻辑保留（仅注释，不删除）
+          // const preferredExt = getPreferredExtension()
+          // const normalizedPreferredExt = normalizeExtension(preferredExt)
+          // const workspaceFolder = getWorkspaceFolder(context)
+          // const extLabel = preferredExt.replace(/^\./, '').toUpperCase()
+          // const lastSaveDir = context.workspaceState.get(STATE_KEYS.LAST_SAVE_DIR)
+          // const baseDir = lastSaveDir && fs.existsSync(lastSaveDir)
+          //   ? vscode.Uri.file(lastSaveDir)
+          //   : workspaceFolder
+          // const defaultUri = baseDir
+          //   ? vscode.Uri.joinPath(baseDir, 'project' + preferredExt)
+          //   : undefined
+          // vscode.window.showSaveDialog({
+          //   title: '新建 MyBricks 设计文件',
+          //   defaultUri,
+          //   filters: {
+          //     [`MyBricks 设计文件 (${extLabel})`]: ['tui'],
+          //     '所有文件': ['*'],
+          //   },
+          //   saveLabel: '新建',
+          // }).then((saveUri) => {
+          //   if (!saveUri) return
+          //   let filePath = saveUri.fsPath
+          //   const ext = path.extname(filePath)
+          //   if (!ext) {
+          //     filePath = filePath + preferredExt
+          //   } else if (ext !== '.tui') {
+          //     filePath = path.join(path.dirname(filePath), path.basename(filePath, ext) + preferredExt)
+          //   }
+          //   context.workspaceState.update(STATE_KEYS.LAST_SAVE_DIR, path.dirname(filePath))
+          //   if (!fs.existsSync(filePath)) {
+          //     fs.writeFileSync(filePath, '{}', 'utf-8')
+          //   }
+          //   vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath), { preview: false })
+          // })
           break
         }
         
