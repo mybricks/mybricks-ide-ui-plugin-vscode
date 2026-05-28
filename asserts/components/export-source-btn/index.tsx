@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { exportCodeToVSCode } from '../../code-export-vscode-adapter'
+import { CodeTransformer } from './code-transformer'
 
 const vsCodeMessage = (window as any).webViewMessageApi
 
@@ -29,7 +30,21 @@ function showNotification(type: 'info' | 'warning' | 'error', msg: string, revea
   }
 }
 
-export default function ExportSourceBtn() {
+/** 从 designerRef 中提取源代码文件列表 */
+function getDesignerFiles(designerRef: any): Array<any> | null {
+  const coms = designerRef.current?.toJSON()?.scenes?.[0]?.coms
+  if (!coms) return null
+
+  const comId = Object.keys(coms)[0]
+  if (!comId) return null
+
+  const files = coms[comId].model?.data?.files
+  if (!files || !Array.isArray(files)) return null
+
+  return files
+}
+
+export default function ExportSourceBtn({ designerRef }) {
   const [loading, setLoading] = useState(false)
   const [fileName, setFileName] = useState<string>('mybricks-app')
   const [exportDir, setExportDir] = useState<string>('.')
@@ -51,55 +66,48 @@ export default function ExportSourceBtn() {
 
     setLoading(true)
     try {
-      const result = forApp._getResourcesCode_('application')
-      if (!result || (Array.isArray(result) && result.length === 0)) {
+      const files = getDesignerFiles(designerRef)
+      if (!files) {
         showNotification('error', '未获取到源代码内容')
         return
       }
 
-      const rawList = Array.isArray(result) ? result : [result]
+      const transformer = new CodeTransformer()
 
-      for (const item of rawList) {
-        const files = item?.files || item?.data?.files
-        if (!files || !Array.isArray(files)) {
-          console.warn('[导出源代码] 跳过无 files 的项', item?.id)
-          continue
+      const transformerFiles = transformer.transformFiles(files.filter(({ fileName }) => {
+        return fileName !== 'setup.ts'
+      }).map((file) => {
+        return {
+          path: file.fileName,
+          content: decodeURIComponent(file.source)
         }
+      }))
 
-        const exportFiles = files
-          .map((f: any) => {
-            const fFileName = f?.fileName || f?.path
-            const content = f?.content ?? f?.source ?? ''
-            if (!fFileName) return null
-            return {
-              fileName: fFileName,
-              content: typeof content === 'string' ? content : String(content),
-            }
-          })
-          .filter(Boolean) as Array<{ fileName: string; content: string }>
-
-        if (exportFiles.length === 0) continue
-
-        // 让后端用 path.join 安全算出 basePath 和绝对路径，避免前端跨平台拼接
-        const pathRes = await vsCodeMessage.call('resolveExportPath', { projectName: fileName, exportDir })
-        if (pathRes?.error) {
-          showNotification('error', `路径解析失败: ${pathRes.error}`)
-          return
-        }
-
-        // 用 basePath 作为 outputDir，跳过目录选择弹窗，直接写入
-        await exportCodeToVSCode(exportFiles, {
-          folderName: '',       // basePath 已包含 projectName，folderName 留空
-          outputDir: pathRes.basePath,
-          onProgress: (progress) => {
-            console.log(`[导出源代码] ${progress.progress}% - ${progress.currentFile}`)
-          },
-        })
-
-        // 通知展示后端返回的绝对路径
-        showNotification('info', `导出源代码成功！路径：${pathRes.fullPath}`, pathRes.fullPath)
+      // 让后端用 path.join 安全算出 basePath 和绝对路径，避免前端跨平台拼接
+      const pathRes = await vsCodeMessage.call('resolveExportPath', { projectName: fileName, exportDir })
+      if (pathRes?.error) {
+        showNotification('error', `路径解析失败: ${pathRes.error}`)
+        return
       }
+
+      // 用 basePath 作为 outputDir，跳过目录选择弹窗，直接写入
+      await exportCodeToVSCode(transformerFiles.map((file) => {
+        return {
+          fileName: file.path,
+          content: file.content
+        }
+      }), {
+        folderName: '',       // basePath 已包含 projectName，folderName 留空
+        outputDir: pathRes.basePath,
+        onProgress: (progress) => {
+          console.log(`[导出源代码] ${progress.progress}% - ${progress.currentFile}`)
+        },
+      })
+
+      // 通知展示后端返回的绝对路径
+      showNotification('info', `导出源代码成功！路径：${pathRes.fullPath}`, pathRes.fullPath)
     } catch (error: any) {
+      console.error(error)
       if (error?.message?.includes('取消')) {
         console.log('[导出源代码] 用户取消')
       } else {

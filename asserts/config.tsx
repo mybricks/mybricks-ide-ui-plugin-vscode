@@ -244,7 +244,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
             title: '',
             type: 'editorRender',
             options: {
-              render: () => <ExportSourceBtn />
+              render: () => <ExportSourceBtn designerRef={designerRef}/>
             }
           },
         ]
