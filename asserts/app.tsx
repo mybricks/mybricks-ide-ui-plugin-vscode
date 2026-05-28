@@ -725,9 +725,7 @@ export default function App() {
           {toolbarPortalRoot &&
             createPortal(
               <>
-                <SaveTimeDisplay />
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ExportSourceBtn designerRef={designerRef} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <SettingOutlined
                     style={{
                       color: '#9ca3af',
@@ -736,6 +734,10 @@ export default function App() {
                     }}
                     onClick={openAiSetting}
                   />
+                  <SaveTimeDisplay />
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ExportSourceBtn designerRef={designerRef} />
                 </div>
                 {/* <Popover
                   trigger="click"
