@@ -110,34 +110,22 @@ export class CodeTransformer {
   }
 
   private replaceMybricksDataSourceImport(ast: t.File) {
-    const localDataSourcePath = './utils/DataSource'
-
     traverse(ast, {
       ImportDeclaration(path: any) {
         if (path.node.source.value !== 'mybricks') return
 
-        const otherSpecifiers = path.node.specifiers.filter(
+        path.node.specifiers = path.node.specifiers.filter(
           (specifier: any) => !(t.isImportSpecifier(specifier) && t.isIdentifier(specifier.local, { name: 'DataSource' })),
         )
 
-        if (otherSpecifiers.length === path.node.specifiers.length) {
-          return
+        if (path.node.specifiers.length === 0) {
+          path.remove()
         }
-
-        const localDataSourceImport = t.importDeclaration(
-          [t.importDefaultSpecifier(t.identifier('DataSource'))],
-          t.stringLiteral(localDataSourcePath),
-        )
-
-        if (otherSpecifiers.length === 0) {
-          path.replaceWith(localDataSourceImport)
-          return
+      },
+      ClassDeclaration(path: any) {
+        if (t.isIdentifier(path.node.superClass, { name: 'DataSource' })) {
+          path.node.superClass = null
         }
-
-        path.replaceWithMultiple([
-          t.importDeclaration(otherSpecifiers, t.stringLiteral('mybricks')),
-          localDataSourceImport,
-        ])
       },
     })
   }
