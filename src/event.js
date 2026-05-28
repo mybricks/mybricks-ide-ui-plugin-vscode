@@ -109,14 +109,21 @@ function handleSidebarMessage(webviewView, context) {
   webviewManager.on('recentFilesUpdated', updateListener)
 
   // 监听侧边栏可见性：若存在 .finclip/project.tui 则自动打开并收起 sidebar；否则保持 sidebar 打开
-  const visibilityListener = webviewView.onDidChangeVisibility(async () => {
+  const tryAutoOpenPreferredProject = async () => {
     if (!webviewView.visible) return
 
     const opened = await openPreferredWorkspaceProject(context)
     if (!opened) return
 
     await vscode.commands.executeCommand('workbench.action.closeSidebar')
+  }
+
+  const visibilityListener = webviewView.onDidChangeVisibility(() => {
+    void tryAutoOpenPreferredProject()
   })
+
+  // 兜底：修复首次加载时 onDidChangeVisibility 未触发的场景
+  void tryAutoOpenPreferredProject()
 
   // 监听 tab 切换（含 CustomEditor，onDidChangeActiveTextEditor 对 CustomEditor 无效）
   const tabChangeListener = vscode.window.tabGroups.onDidChangeTabs(() => {
