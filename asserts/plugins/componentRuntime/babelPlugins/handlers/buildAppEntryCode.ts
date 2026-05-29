@@ -8,7 +8,7 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
   const appMountHandler = appConfig.tabBar?.list?.length > 1 ? 'handleAppMountWithTabbar' : 'handleAppMount'
 
   return `
-  import { MyBricksElement } from '@tarojs/components'
+  import { MyBricksElement, MyBricksActionBar } from '@tarojs/components'
   import { appRef, Routes, Route, logger } from 'mybricks'
   import App from './app'
   ${pages.reduce((pre, page) => {
@@ -63,10 +63,10 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
           }, {}),`
         }, "")}
       ]
-      const ReactDOMCompat = Object.assign({}, ReactDOM, { findDOMNode, render, unstable_batchedUpdates })
+      Object.assign(ReactDOM, { findDOMNode, render, unstable_batchedUpdates })
       defineCustomElementTaroPullToRefreshCore()
 
-      var inst = createReactApp(App, React, ReactDOMCompat, config)
+      var inst = createReactApp(App, React, ReactDOM, config)
       var history = createMemoryHistory(({ initialEntries: [_debugTarget.pageIndex] }))
       ${appMountHandler}(config, history)
       createRouter(history, inst, config, React)
@@ -79,15 +79,18 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
           '--taro-tabbar-height': '50px'
         }}
       >
-        <div
-          id="${appConfig.appId}Container"
-          style={{
-            ..._debugTarget?.style,
-            height: '896px',
-            overflow: 'hidden'
-          }}
-        >
-          <div id="${appConfig.appId}"></div>
+        <div style={_debugTarget?.style}>
+          <MyBricksActionBar />
+          <div
+            id="${appConfig.appId}Container"
+            style={{
+              width: '100%',
+              height: '896px',
+              overflow: 'hidden'
+            }}
+          >
+            <div id="${appConfig.appId}"></div>
+          </div>
         </div>
       </div>
     )

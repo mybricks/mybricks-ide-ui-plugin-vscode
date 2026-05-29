@@ -12,7 +12,7 @@ import TaroJsComponentsLibs from './availableLibraries/taroComponents'
 import NutuiIconsReactTaroLibs from './availableLibraries/nutuiIcons'
 
 import * as Taro from '@tarojs/taro'
-import { Element } from './babelPlugins/runtime'
+import { Element, ActionBar } from './babelPlugins/runtime'
 
 const TaroComponentsReactDescriptors = Object.getOwnPropertyDescriptors(TaroComponentsReactOriginal)
 // 扩展组件
@@ -23,12 +23,20 @@ TaroComponentsReactDescriptors.MyBricksElement = {
     return Element
   }
 }
+TaroComponentsReactDescriptors.MyBricksActionBar = {
+  configurable: false,
+  enumerable: true,
+  get() {
+    return ActionBar
+  }
+}
 const TaroComponentsReact = Object.defineProperties({}, TaroComponentsReactDescriptors)
 
 const getDependencies = (params) => {
   return {
     '@tarojs/components': {
       version: '4.2.0',
+      readme: '',
       module: TaroComponentsReact,
       ...TaroJsComponentsLibs
     },
