@@ -11,6 +11,7 @@ import { loadManifest } from './manifestLoader'
 
 import getAiPlugin from './plugins/get-ai-plugin'
 import { createIdeWorkspaceConfigPlugin } from './plugins/ide-workspace'
+import { resolveLocalUrl } from './app'
 
 type CodingConfigData = {
   themes?: Array<{ id: string; name: string; vars: Array<{ propertyName: string; value: string; title: string; type: string }> }>
@@ -63,7 +64,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
           return []
         }
         // return ['http://localhost:20000/comlib.js']
-        return [aiComLibUrl]
+        return [resolveLocalUrl(aiComLibUrl)]
       }).catch((err) => {
         console.error('[comLibLoader] 获取 manifest 失败:', err)
         return []

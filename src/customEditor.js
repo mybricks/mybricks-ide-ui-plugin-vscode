@@ -135,6 +135,13 @@ class MyBricksEditorProvider {
       webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview', relPath)).toString()
     )
 
+    // 注入本地资源 URI 映射，供前端运行时动态加载本地脚本/样式
+    const assertsBase = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts')).toString()
+    const outWebviewBase = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview')).toString()
+    const uriMapScript = `<script>window.__WEBVIEW_URI_MAP__ = { asserts: "${assertsBase}", out: "${outWebviewBase}" };</script>`
+    // 插入到 </head> 之前，确保尽早可用
+    html = html.replace('</head>', uriMapScript + '\n  </head>')
+
     return html
   }
 
