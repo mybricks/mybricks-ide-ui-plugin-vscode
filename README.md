@@ -6,7 +6,7 @@
 
 ## ✨ 简介
 
-VibeUI（VSCode IDE插件）依托 MyBricks.ai社区，将可视化设计平台与Vibe Coding相融合，为开发者/产品经理/设计师提供方便的Vibe UI开发体验。
+VibeUI（VSCode IDE插件），将可视化设计平台与Vibe Coding相融合，为开发者/产品经理/设计师提供方便的Vibe UI开发体验。
 
 ---
 

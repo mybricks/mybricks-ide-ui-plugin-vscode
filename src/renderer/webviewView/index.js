@@ -1,6 +1,8 @@
 const vscode = require('vscode')
 const fs = require('fs')
 const path = require('path')
+const { getPreferredExtension } = require('../../fileExtension')
+const { getWorkspaceRoot } = require('../../../utils/workspaceFiles')
 const { handleSidebarMessage } = require('../../event')
 
 /**
@@ -22,10 +24,14 @@ class WebviewView {
   }
 
   /**
-   * 创建侧边栏视图提供者
-   * @param {vscode.ExtensionContext} context - 扩展上下文
-   * @returns {vscode.WebviewViewProvider}
+   * 获取 finclip 场景下的精简侧边栏内容
+   * @returns {string}
    */
+  getFinclipWebviewContent() {
+    const htmlPath = path.join(__dirname, 'finclip.html')
+    return fs.readFileSync(htmlPath, 'utf8')
+  }
+
   createProvider(context) {
     const extensionUri = context.extensionUri
     const self = this
@@ -40,8 +46,14 @@ class WebviewView {
           ],
         }
 
+        const preferredExt = getPreferredExtension()
+        const workspaceRoot = getWorkspaceRoot()
+        const finclipProjectPath = path.join(workspaceRoot, '.finclip', `project${preferredExt}`)
+
         // 设置侧边栏 HTML 内容
-        webviewView.webview.html = self.getWebviewContent(extensionUri)
+        webviewView.webview.html = fs.existsSync(finclipProjectPath)
+          ? self.getFinclipWebviewContent()
+          : self.getWebviewContent(extensionUri)
 
         // 处理侧边栏消息
         handleSidebarMessage(webviewView, context)

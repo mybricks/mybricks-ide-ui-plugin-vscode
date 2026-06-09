@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 18px 14px 16px;
+        font-family: var(--vscode-font-family);
+        font-size: 13px;
+        line-height: 1.7;
+        background: var(--vscode-sideBar-background);
+        color: var(--vscode-foreground);
+      }
+      .card {
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--vscode-sideBar-background) 88%, #ffffff 12%);
+        padding: 16px 14px;
+      }
+      .hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+      }
+      .badge {
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+        line-height: 18px;
+        font-weight: 600;
+        color: var(--vscode-button-background);
+        background: color-mix(in srgb, var(--vscode-button-background) 14%, transparent 86%);
+        border: 1px solid color-mix(in srgb, var(--vscode-button-background) 32%, transparent 68%);
+      }
+      .desc {
+        margin: 0 0 18px;
+        color: var(--vscode-descriptionForeground);
+      }
+      .feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .feature-item {
+        padding-left: 12px;
+        position: relative;
+        color: var(--vscode-foreground);
+      }
+      .feature-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 11px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--vscode-button-background);
+      }
+      .button {
+        width: 100%;
+        border: 1px solid var(--vscode-button-border, transparent);
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        background: var(--vscode-button-background);
+        color: var(--vscode-button-foreground);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .button:hover {
+        background: var(--vscode-button-hoverBackground);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="hero">
+        <div class="title">Vibe Taro UI</div>
+        <div class="badge">AI</div>
+      </div>
+
+      <p class="desc">
+        当前工作区已接入 Vibe Taro UI。你可以通过 AI 驱动的可视化设计器，快速完成页面搭建、交互编排与源码协同。
+      </p>
+
+      <div class="feature-list">
+        <div class="feature-item">通过 AI 辅助生成页面结构、组件内容与界面布局</div>
+        <div class="feature-item">在可视化设计器中继续编排交互、状态与页面逻辑</div>
+        <div class="feature-item">让设计编辑与工程源码保持联动，减少重复切换与手动配置</div>
+      </div>
+
+      <button class="button" id="open-vibe-taro-ui">进入 AI 设计工作台</button>
+    </div>
+
+    <script>
+      const vscode = acquireVsCodeApi()
+      document.getElementById('open-vibe-taro-ui')?.addEventListener('click', () => {
+        vscode.postMessage({ command: 'openIDE' })
+      })
+    </script>
+  </body>
+</html>
