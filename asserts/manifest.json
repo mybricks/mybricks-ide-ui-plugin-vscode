@@ -2,7 +2,7 @@
   "designer": {
     "name": "mybricks.SPADesigner",
     "version": "local",
-    "url": "./asserts/designer/3.9.951.t5/index.min.js"
+    "url": "./asserts/designer/3.9.952.t1/index.min.js"
   },
   "aiComLib": {
     "name": "ailib",
