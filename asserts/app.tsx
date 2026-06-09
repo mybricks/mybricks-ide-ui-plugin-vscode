@@ -276,6 +276,8 @@ export default function App() {
     if (typeof openSetting !== 'function') return
 
     const savedSettings = await vsCodeMessage?.call('getAISetting').catch(() => null) ?? {}
+    // 如果没有渠道，默认使用 custom 渠道
+    if (!savedSettings.channel) savedSettings.channel = 'custom'
     // 记录弹窗打开时的渠道，关闭时对比是否变化
     const prevChannel: string = savedSettings?.channel ?? (infraAvailable ? 'infra' : 'mybricks')
 
