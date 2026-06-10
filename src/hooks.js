@@ -110,8 +110,19 @@ function onActivate(context) {
   // 注册 URI Handler：浏览器可通过 vscode://mybricks.mybricks-taro-webview/open 唤起 Cursor 并打开设计器
   context.subscriptions.push(registerUriHandler(context))
 
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath
+  const preferredExt = getPreferredExtension()
+  const preferredProjectPath = workspaceRoot
+    ? path.join(workspaceRoot, '.finclip', `project${preferredExt}`)
+    : null
+
+  if (preferredProjectPath && fs.existsSync(preferredProjectPath)) {
+    setTimeout(() => {
+      vscode.commands.executeCommand('mybricks.taro.openIDE')
+    }, 100)
+  }
+
   // MCP 服务不在此处启动，需打开设计器后通过命令「开启 MCP 服务」触发
-  // 不再默认打开 MyBricks 设计器，用户通过命令或打开 .tui 文件进入
 
   // 调试前端时自动打开开发者工具（需先手动打开设计器）
   if (process.env.MYBRICKS_FRONT_END_DEBUG_MODE === 'true') {
