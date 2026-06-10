@@ -1,8 +1,11 @@
 const vscode = require('vscode')
 const https = require('https')
+const fs = require('fs')
+const path = require('path')
 const { registerSubscriptions } = require('./subscriptions')
 const { stopMCPHttpServer } = require('./mcp-server')
 const { registerUriHandler } = require('./uriHandler')
+const { getPreferredExtension } = require('./fileExtension')
 
 const PUBLISHER = 'mybricks'
 const EXTENSION_NAME = 'mybricks-taro-webview'

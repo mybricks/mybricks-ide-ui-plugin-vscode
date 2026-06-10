@@ -242,5 +242,7 @@ function handleSidebarMessage(webviewView, context) {
 
 module.exports = {
   handleSidebarMessage,
+  openPreferredWorkspaceProject,
+  openIDEWithPreferredFile,
 }
 

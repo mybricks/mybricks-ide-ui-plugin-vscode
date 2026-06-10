@@ -12,6 +12,7 @@ const {
 } = require('./mcp-server')
 const { getInstance: getWebviewManager } = require('./manager/webviewManager')
 const { registerCustomEditor } = require('./customEditor')
+const { openIDEWithPreferredFile } = require('./event')
 
 // WebviewView 侧边栏视图实例
 const webviewView = new WebviewView()
@@ -24,6 +25,14 @@ function registerSubscriptions(context) {
   // 获取 WebviewManager 单例并初始化
   const webviewManager = getWebviewManager()
   webviewManager.initialize(context)
+
+  // 注册命令：打开 MyBricks IDE（优先打开工作区 .finclip/project.tui，否则走新建流程）
+  const openIDECommand = vscode.commands.registerCommand(
+    'mybricks.taro.openIDE',
+    async () => {
+      await openIDEWithPreferredFile(context)
+    }
+  )
 
   // 注册命令：右键菜单"用 MyBricks 打开"（CustomEditor 模式：直接用 vscode.open）
   const openFileCommand = vscode.commands.registerCommand(
@@ -141,6 +150,7 @@ function registerSubscriptions(context) {
   registerCustomEditor(context)
 
   // 将所有订阅添加到 context.subscriptions
+  context.subscriptions.push(openIDECommand)
   context.subscriptions.push(openFileCommand)
   context.subscriptions.push(newUIFileCommand)
   context.subscriptions.push(initCommand)
