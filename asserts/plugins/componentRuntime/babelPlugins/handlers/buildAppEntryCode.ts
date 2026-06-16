@@ -85,7 +85,7 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
             id="${appConfig.appId}Container"
             style={{
               width: '100%',
-              height: '896px',
+              height: '100vh',
               overflow: 'hidden'
             }}
           >
