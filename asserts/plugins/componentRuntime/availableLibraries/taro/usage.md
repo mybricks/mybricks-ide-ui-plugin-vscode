@@ -17,5 +17,5 @@ Taro.showToast({
 Taro 已经将各端的api都进行了封装，编码无需关注多端差异，都使用 \`Taro. + API 名称\` 来进行调用
 
 ### app.config.ts文件配置
-- 禁止使用 import { defineAppConfig } from 'mybricks'
+- defineAppConfig/definePageConfig 是 Taro 提供的全局配置函数，不需要手动引入
 - tabBar.list[number].iconPath、tabBar.list[number].selectedIconPath 支持使用网络图片配置，禁止使用绝对路径
