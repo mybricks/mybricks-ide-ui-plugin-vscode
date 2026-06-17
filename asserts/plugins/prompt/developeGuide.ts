@@ -110,6 +110,7 @@ popupRef 说明：
 5. 尽量不要用 calc 等复杂的计算；
 6. 动效、动画等效果，尽量使用 css3 的方式实现，例如 transition、animation 等；
 7. 不使用 :before、:after 等伪类选择器来实现 dom；
+8. 输出必须符合标准 CSS 语法规范。任何驼峰命名的属性（如 marginBottom）将被视为无效，请改用 margin-bottom；
 
 #### hooks/ 文件夹编写规范
 当组件内存在相对独立、可复用或逻辑复杂的逻辑时，将其抽取为自定义 hook，放在同级 \`hooks/\` 文件夹中，每个 hook 对应一个独立文件。
