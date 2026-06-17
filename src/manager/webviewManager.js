@@ -155,19 +155,8 @@ class WebviewManager extends EventEmitter {
     const key = this._normalize(filePath)
     const entry = this.panelMap.get(key)
     if (!entry) return false
+    const html = getWebviewContent(entry.panel.webview, this.context.extensionUri)
 
-    // 动态 require 避免循环依赖
-    const path_ = require('path')
-    const fs = require('fs')
-    const htmlPath = path_.join(__dirname, '../renderer/webviewPanel/index.html')
-    let html = fs.readFileSync(htmlPath, 'utf8')
-    const extensionUri = this.context.extensionUri
-    html = html.replace(/\.\/asserts\/([^"'\s)]+)/g, (_, relPath) =>
-      entry.panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts', relPath)).toString()
-    )
-    html = html.replace(/\.\/out\/webview\/([^"'\s)]+)/g, (_, relPath) =>
-      entry.panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview', relPath)).toString()
-    )
     // 先置空再赋值，强制 VSCode 感知内容变化并触发 webview 重载
     entry.panel.webview.html = ''
     entry.panel.webview.html = html
@@ -275,7 +264,38 @@ function getInstance() {
   return instance
 }
 
+/**
+ * 生成 webview HTML（将本地资源路径替换为 webview URI）
+ * @param {vscode.Webview} webview
+ * @param {vscode.Uri} extensionUri
+ * @returns {string}
+ */
+function getWebviewContent(webview, extensionUri) {
+  // 动态 require 避免循环依赖
+  const path_ = require('path')
+  const fs = require('fs')
+  const htmlPath = path_.join(__dirname, '../renderer/webviewPanel/index.html')
+  let html = fs.readFileSync(htmlPath, 'utf8')
+
+  html = html.replace(/\.\/asserts\/([^"'\s)]+)/g, (_, relPath) =>
+    webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts', relPath)).toString()
+  )
+  html = html.replace(/\.\/out\/webview\/([^"'\s)]+)/g, (_, relPath) =>
+    webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview', relPath)).toString()
+  )
+
+  // 注入本地资源 URI 映射，供前端运行时动态加载本地脚本/样式
+  const assertsBase = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts')).toString()
+  const outWebviewBase = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview')).toString()
+  const uriMapScript = `<script>window.__WEBVIEW_URI_MAP__ = { asserts: "${assertsBase}", out: "${outWebviewBase}" };</script>`
+  // 插入到 </head> 之前，确保尽早可用
+  html = html.replace('</head>', uriMapScript + '\n  </head>')
+
+  return html
+}
+
 module.exports = {
   getInstance,
   WebviewManager,
+  getWebviewContent
 }

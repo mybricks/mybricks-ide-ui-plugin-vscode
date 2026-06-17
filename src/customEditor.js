@@ -4,7 +4,7 @@ const vscode = require('vscode')
 const { stopProxyServer } = require('./proxy-server')
 const MessageAPI = require('../utils/messageApi')
 const registerHandlers = require('./registerHandler')
-const { getInstance: getWebviewManager } = require('./manager/webviewManager')
+const { getInstance: getWebviewManager, getWebviewContent } = require('./manager/webviewManager')
 
 /**
  * MyBricksEditorProvider - 基于 vscode.CustomEditorProvider 的自定义编辑器
@@ -70,7 +70,7 @@ class MyBricksEditorProvider {
       enableCommandUris: true,
     }
 
-    webviewPanel.webview.html = this._getWebviewContent(webviewPanel.webview, extensionUri)
+    webviewPanel.webview.html = getWebviewContent(webviewPanel.webview, extensionUri)
 
     const messageApiInstance = new MessageAPI(webviewPanel)
     this._setupMyBricksAPI(webviewPanel, messageApiInstance)
@@ -116,33 +116,6 @@ class MyBricksEditorProvider {
     if (webviewPanel.visible) {
       webviewManager.setCurrentFilePath(filePath)
     }
-  }
-
-  /**
-   * 生成 webview HTML（将本地资源路径替换为 webview URI）
-   * @param {vscode.Webview} webview
-   * @param {vscode.Uri} extensionUri
-   * @returns {string}
-   */
-  _getWebviewContent(webview, extensionUri) {
-    const htmlPath = path.join(__dirname, 'renderer', 'webviewPanel', 'index.html')
-    let html = fs.readFileSync(htmlPath, 'utf8')
-
-    html = html.replace(/\.\/asserts\/([^"'\s)]+)/g, (_, relPath) =>
-      webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts', relPath)).toString()
-    )
-    html = html.replace(/\.\/out\/webview\/([^"'\s)]+)/g, (_, relPath) =>
-      webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview', relPath)).toString()
-    )
-
-    // 注入本地资源 URI 映射，供前端运行时动态加载本地脚本/样式
-    const assertsBase = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'asserts')).toString()
-    const outWebviewBase = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'out', 'webview')).toString()
-    const uriMapScript = `<script>window.__WEBVIEW_URI_MAP__ = { asserts: "${assertsBase}", out: "${outWebviewBase}" };</script>`
-    // 插入到 </head> 之前，确保尽早可用
-    html = html.replace('</head>', uriMapScript + '\n  </head>')
-
-    return html
   }
 
   /**
@@ -267,5 +240,5 @@ function registerCustomEditor(context) {
 module.exports = {
   registerCustomEditor,
   MyBricksEditorProvider,
-  markFileDirty,
+  markFileDirty
 }
