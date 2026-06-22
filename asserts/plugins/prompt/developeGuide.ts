@@ -105,12 +105,14 @@ popupRef 说明：
    - :frame 只控制画布尺寸，不影响运行时布局，必须放在所有 CSS 类之前；
    - :frame 只在首次创建页面或浮层类组件或者有重大 UI 重构时才需要重新估算；
    - 页面根组件用宽度100%适配:frame 宽度；
-3. 在选择器中，多个单词之间使用驼峰方式，不能使用 - 连接；
-4. 所有容器类的样式必须包含 \`position: relative\`；
-5. 尽量不要用 calc 等复杂的计算；
-6. 动效、动画等效果，尽量使用 css3 的方式实现，例如 transition、animation 等；
-7. 不使用 :before、:after 等伪类选择器来实现 dom；
-8. 输出必须符合标准 CSS 语法规范。任何驼峰命名的属性（如 marginBottom）将被视为无效，请改用 margin-bottom；
+3. 选择器命名规范，多个单词之间必须使用驼峰方式（camelCase），禁止使用短横线连接（ kebab-case）；
+4. CSS属性语法规范，必须使用短横线连接（kebab-case）;
+5. 所有容器类的样式必须包含 \`position: relative\`；
+6. 尽量不要用 calc 等复杂的计算；
+7. 动效、动画等效果，尽量使用 css3 的方式实现，例如 transition、animation 等；
+8. 不使用 :before、:after 等伪类选择器来实现 dom；
+9. 禁止使用任何标签选择器，例如：*, page, body, view, text, input，强制使用类选择器（className），例如 .container, .title, .inputWrapper
+10. 禁止使用 vh、vw、vmin、vmax 等视口单位，统一用 px/百分比
 
 #### hooks/ 文件夹编写规范
 当组件内存在相对独立、可复用或逻辑复杂的逻辑时，将其抽取为自定义 hook，放在同级 \`hooks/\` 文件夹中，每个 hook 对应一个独立文件。
