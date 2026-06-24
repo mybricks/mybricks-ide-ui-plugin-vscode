@@ -23,6 +23,10 @@ a {
   background-color: transparent;
 }
 
+.taro_router {
+  transform: translate(0);
+}
+
 .nut-icon {
   display: inline-block;
 }
@@ -43,4 +47,12 @@ input {
 
 taro-button-core + taro-button-core {
   margin-top: unset;
+}
+
+/* 兼容最小高度 调试状态下 为了避免tabbar高度带来的空白 896px - 50px  */
+/* div[data-zone-type='page'], taro-view-core[data-zone-classnames='page'] {
+  min-height: 846px;
+} */
+.taro_page{
+  overflow: auto !important;
 }

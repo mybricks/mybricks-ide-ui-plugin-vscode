@@ -10,5 +10,8 @@ export default function handleDefineAppConfig(callPath, programPath) {
     },
     appConfig
   )))
+  
+   ;(window as any).__taroAppConfig = appConfig;
+
   programPath.node.body = result.ast.program.body
 }

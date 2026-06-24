@@ -57,7 +57,7 @@ async function config({ designerRef, aiChannel, codingConfig }: { designerRef: R
     // 组件库加载器：从 manifest 动态获取 aiComLib.url
     comLibLoader(desc) {
       return loadManifest().then((manifest) => {
-        const aiComLibUrl = manifest?.aiComLib?.url
+        const aiComLibUrl = manifest?.aiComLib?.url || 'https://p4-ec.ecukwai.com/kos/nlav11092/vibe-coding/comlib/2.0.86/edit.88e822e23cb75038.js'
         if (!aiComLibUrl) {
           console.warn('[comLibLoader] manifest.aiComLib.url 为空，跳过组件库加载')
           return []

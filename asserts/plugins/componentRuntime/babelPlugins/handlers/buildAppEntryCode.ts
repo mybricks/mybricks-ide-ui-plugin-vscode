@@ -50,7 +50,6 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
       Current.page = null
 
       var config = ${JSON.stringify(appConfig)}
-      window.__taroAppConfig = config
 
       config.routes = [
         ${pages.reduce((pre, page) => {
