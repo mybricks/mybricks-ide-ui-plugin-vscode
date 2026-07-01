@@ -82,9 +82,9 @@ const buildAppEntryCode = (appConfig: Taro.AppConfig, ) => {
           <MyBricksActionBar />
           <div
             id="${appConfig.appId}Container"
+            className="customDebugContainer"
             style={{
               width: '100%',
-              height: '100vh',
               overflow: 'hidden'
             }}
           >

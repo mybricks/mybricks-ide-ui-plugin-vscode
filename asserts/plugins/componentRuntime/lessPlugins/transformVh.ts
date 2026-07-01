@@ -1,8 +1,8 @@
 export interface TransformVhOptions {
-  /** 要从 vh 中扣除的长度，默认 50px（tabbar 高度） */
-  offset?: string
-  /** 是否只处理 100vh，默认 true */
-  only100?: boolean
+  /** tabbar 高度，默认 50px */
+  tabbarHeight?: number | string
+  /** 100vh 的基准高度，默认 896px */
+  baseHeight?: number | string
 }
 
 const VH_RE = /(?<![\w.])(\d+(?:\.\d+)?)vh\b/g
@@ -43,24 +43,6 @@ const collectSkipRanges = (source: string): Array<[number, number]> => {
       i = j
       continue
     }
-    // calc(...) 整段（含嵌套括号）
-    if (
-      ch === 'c' &&
-      source.startsWith('calc(', i) &&
-      !/[\w-]/.test(source[i - 1] ?? '')
-    ) {
-      let depth = 1
-      let j = i + 5
-      while (j < len && depth > 0) {
-        const c = source[j]
-        if (c === '(') depth += 1
-        else if (c === ')') depth -= 1
-        j += 1
-      }
-      ranges.push([i, j])
-      i = j
-      continue
-    }
     i += 1
   }
   return ranges
@@ -74,17 +56,23 @@ const isInsideRange = (index: number, ranges: Array<[number, number]>) => {
   return false
 }
 
+const toNumber = (val: number | string): number => {
+  if (typeof val === 'number') return val
+  return parseFloat(val)
+}
+
 export const transformVh = (source: string, options: TransformVhOptions = {}): string => {
-  const { offset = '50px', only100 = true } = options
+  const { baseHeight = 896 } = options
   if (!source || !source.includes('vh')) return source
 
-
   const skipRanges = collectSkipRanges(source)
+  const base = toNumber(baseHeight)
 
   return source.replace(VH_RE, (match, num: string, index: number) => {
-    if (only100 && Number(num) !== 100) return match
     if (isInsideRange(index, skipRanges)) return match
-    return `calc(${num}vh - ${offset})`
+    const px = (Number(num) * base / 100)
+    const pxStr = Number.isInteger(px) ? `${px}px` : `${px.toFixed(2)}px`
+    return pxStr
   })
 }
 
@@ -96,10 +84,11 @@ export const createTransformVh = (
   appConfig: Taro.AppConfig | undefined,
   options: TransformVhOptions = {}
 ) => {
-  if (!hasTabbar(appConfig)) {
-    return (source: string) => source
-  }
-  return (source: string) => transformVh(source, options)
+  const { tabbarHeight = 50, baseHeight = 896 } = options
+  const hasTab = hasTabbar(appConfig)
+  const effectiveBase = hasTab ? toNumber(baseHeight) - toNumber(tabbarHeight) : toNumber(baseHeight)
+
+  return (source: string) => transformVh(source, { baseHeight: effectiveBase })
 }
 
 export default transformVh

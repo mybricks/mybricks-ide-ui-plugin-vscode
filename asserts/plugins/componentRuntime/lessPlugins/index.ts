@@ -6,7 +6,7 @@ const lessPlugin = function () {
       pluginManager.addPostProcessor({
         process(css) {
           const appConfig = (window as any).__taroAppConfig
-          const transform = createTransformVh(appConfig, { offset: '50px', only100: true })
+          const transform = createTransformVh(appConfig, { tabbarHeight: 50, baseHeight: 896 })
           return transform(css)
         },
       })

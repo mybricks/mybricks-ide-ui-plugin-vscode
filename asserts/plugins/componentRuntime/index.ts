@@ -5,7 +5,7 @@ import lessPlugins from './lessPlugins'
 // [TODO] 临时，目前倒进来后字体没有被隔离
 import '@tarojs/components/dist/taro-components/taro-components.css'
 
-let version = 4 //重新渲染
+let version = 5 //重新渲染
 
 export default {
   babelPlugins,

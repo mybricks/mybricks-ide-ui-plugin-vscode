@@ -12,6 +12,7 @@ const Element = ({
   const { tabBar } = appConfig
   return (
     <div
+      className="customDesignContainer"
       style={{
         display: 'flex',
         flexDirection: 'column',
