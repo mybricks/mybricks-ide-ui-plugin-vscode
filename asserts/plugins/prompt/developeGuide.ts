@@ -112,7 +112,7 @@ popupRef 说明：
 7. 动效、动画等效果，尽量使用 css3 的方式实现，例如 transition、animation 等；
 8. 不使用 :before、:after 等伪类选择器来实现 dom；
 9. 禁止使用任何标签选择器，例如：*, page, body, view, text, input，强制使用类选择器（className），例如 .container, .title, .inputWrapper
-10. 禁止使用 vh、vw、vmin、vmax 等视口单位，统一用 px/百分比
+10. CSS变量必须添加项目特有前缀，避免与其他框架的变量冲突，例如：\`--myApp-color-primary: #007AFF;\`；
 
 #### hooks/ 文件夹编写规范
 当组件内存在相对独立、可复用或逻辑复杂的逻辑时，将其抽取为自定义 hook，放在同级 \`hooks/\` 文件夹中，每个 hook 对应一个独立文件。

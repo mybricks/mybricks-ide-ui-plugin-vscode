@@ -183,9 +183,9 @@ export async function localizeRemoteTabBarIcons(files: FileItem[]): Promise<File
     },
   )
 
-  if (assetFiles.length === 0) {
-    return files
-  }
+  // if (assetFiles.length === 0) {
+  //   return files
+  // }
 
   const nextFiles = [...files]
   nextFiles[appConfigIndex] = {
