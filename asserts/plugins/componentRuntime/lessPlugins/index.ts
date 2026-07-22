@@ -5,7 +5,9 @@ import { createTransformVh } from './transformVh'
  */
 const transformPage = function (css: string) {
   const selectors = ['page', ':root', 'html', 'body']
-  const targetSelector = 'div[data-zone-type="page"]'
+  const targetSelectors = ['div[data-zone-type="page"]', '.customDebugContainer']
+  const targetSelector =
+    targetSelectors.length === 1 ? targetSelectors[0] : `:is(${targetSelectors.join(', ')})`
 
   return selectors.reduce((result, selector) => {
     const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
